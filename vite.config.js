@@ -1,16 +1,13 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
-// https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
-  build: {
-    rollupOptions: {
-      // ✅ Prevent Vite from trying to bundle these libraries
-      external: [
-        '@privy-io/react-auth',
-        '@monad/game-id-sdk' // change to the actual Monad Game ID SDK package name if different
-      ]
-    }
-  }
-})
+  plugins: [
+    react(),
+    nodePolyfills({ include: ['buffer', 'crypto', 'stream', 'util'] }),
+  ],
+  define: {
+    'process.env': {},
+  },
+});
