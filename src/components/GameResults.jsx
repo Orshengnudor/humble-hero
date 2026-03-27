@@ -1,5 +1,5 @@
+import { Trophy, Medal, Star, ArrowLeft, Zap, Target } from 'lucide-react';
 import { formatWallet } from '../lib/solana';
-import { Trophy, Medal, Star, ArrowLeft, Zap } from 'lucide-react';
 
 export default function GameResults({ results, onBackToLobby }) {
   const { allPlayers, winner, isWinner, prizePool, score, hits, misses, perfectHits, maxCombo } = results;
@@ -75,6 +75,3 @@ export default function GameResults({ results, onBackToLobby }) {
     </div>
   );
 }
-
-// Need to import Target from lucide
-import { Target } from 'lucide-react';
