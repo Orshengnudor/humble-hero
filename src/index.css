@@ -1,3 +1,38 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --bg-primary: 270 50% 8%;
+  --bg-secondary: 270 40% 12%;
+  --bg-card: 270 35% 16%;
+  --bg-card-hover: 270 35% 20%;
+  --text-primary: 0 0% 98%;
+  --text-secondary: 270 20% 70%;
+  --text-muted: 270 15% 50%;
+  --accent: 160 84% 39%;
+  --accent-glow: 160 84% 50%;
+  --primary: 265 89% 58%;
+  --primary-glow: 265 89% 68%;
+  --warning: 38 92% 50%;
+  --danger: 0 84% 50%;
+  --success: 160 84% 39%;
+  --border: 270 20% 22%;
+  --border-glow: 265 60% 40%;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: linear-gradient(145deg, hsl(var(--bg-primary)), hsl(var(--bg-secondary)));
+  color: hsl(var(--text-primary));
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
