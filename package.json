@@ -14,12 +14,8 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@metamask/delegation-toolkit": "^0.13.0",
-    "@tanstack/react-query": "^5.90.5",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "viem": "^2.38.3",
-    "wagmi": "^2.18.2"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
