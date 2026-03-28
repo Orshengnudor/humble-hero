@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { Buffer } from 'buffer';
 import WalletProvider from './components/WalletProvider';
@@ -8,9 +8,9 @@ import Matchmaking from './components/Matchmaking';
 import GamePlay from './components/GamePlay';
 import GameResults from './components/GameResults';
 import Leaderboard from './components/Leaderboard';
+import { updateLeaderboard } from './lib/supabase';
 import './App.css';
 
-// Polyfill Buffer for Solana
 window.Buffer = Buffer;
 
 function GameApp() {
@@ -20,6 +20,16 @@ function GameApp() {
   const [matchPlayers, setMatchPlayers] = useState([]);
   const [gameResults, setGameResults] = useState(null);
   const [prizePool, setPrizePool] = useState(0);
+  const [isDarkMode, setIsDarkMode] = useState(true);
+
+  // Toggle dark mode
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
   const handleJoinMatch = (match) => {
     setCurrentMatch(match);
@@ -34,9 +44,19 @@ function GameApp() {
     setActiveView('game');
   };
 
-  const handleGameEnd = (results) => {
+  const handleGameEnd = async (results) => {
     setGameResults(results);
     setActiveView('results');
+
+    // Update leaderboard for ALL players
+    if (publicKey) {
+      const isWinner = results.winner === publicKey.toBase58();
+      await updateLeaderboard(
+        publicKey.toBase58(),
+        isWinner,
+        results.score
+      );
+    }
   };
 
   const handleBackToLobby = () => {
@@ -55,31 +75,13 @@ function GameApp() {
 
   const renderView = () => {
     switch (activeView) {
-      case 'lobby':
-        return <Lobby onJoinMatch={handleJoinMatch} />;
+      case 'lobby': return <Lobby onJoinMatch={handleJoinMatch} />;
       case 'matchmaking':
-        return (
-          <Matchmaking
-            match={currentMatch}
-            onGameStart={handleGameStart}
-            onLeave={handleLeaveMatch}
-          />
-        );
+        return <Matchmaking match={currentMatch} onGameStart={handleGameStart} onLeave={handleLeaveMatch} />;
       case 'game':
-        return (
-          <GamePlay
-            match={currentMatch}
-            players={matchPlayers}
-            onGameEnd={handleGameEnd}
-          />
-        );
+        return <GamePlay match={currentMatch} players={matchPlayers} onGameEnd={handleGameEnd} />;
       case 'results':
-        return (
-          <GameResults
-            results={gameResults}
-            onBackToLobby={handleBackToLobby}
-          />
-        );
+        return <GameResults results={gameResults} onBackToLobby={handleBackToLobby} />;
       case 'leaderboard':
         return <Leaderboard />;
       default:
@@ -89,10 +91,12 @@ function GameApp() {
 
   return (
     <div className="app-container">
-      <Header 
-        activeView={activeView} 
-        setActiveView={setActiveView} 
+      <Header
+        activeView={activeView}
+        setActiveView={setActiveView}
         prizePool={prizePool}
+        isDarkMode={isDarkMode}
+        toggleDarkMode={() => setIsDarkMode(!isDarkMode)}
       />
       <main className="app-main">
         {renderView()}

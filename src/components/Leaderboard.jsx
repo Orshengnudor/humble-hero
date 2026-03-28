@@ -41,16 +41,9 @@ export default function Leaderboard() {
         <div className="no-data">
           <p>No matches played yet. Be the first!</p>
         </div>
-      ) : (
-        <div className="leaderboard-table">
-          <div className="lb-header-row">
-            <span>Rank</span>
-            <span>Player</span>
-            <span>Wins</span>
-            <span>Games</span>
-            <span>Score</span>
-          </div>
-          {entries.map((entry, i) => (
+) : (
+  <div>
+    {entries.map((entry, i) => (
             <div key={entry.id || i} className={`lb-row ${i < 3 ? 'top-3' : ''}`}>
               <span className="lb-rank">
                 {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}

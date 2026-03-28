@@ -913,3 +913,16 @@
     gap: 0.5rem;
   }
 }
+
+.dark-toggle-btn {
+  background: hsla(270, 35%, 20%, 0.6);
+  border: 1px solid hsla(270, 20%, 30%, 0.4);
+  color: hsl(270, 20%, 70%);
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}

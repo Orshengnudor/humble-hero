@@ -1,24 +1,27 @@
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
-// Solana connection (mainnet for production)
-const SOLANA_RPC = 'https://api.mainnet-beta.solana.com';
+// === CONFIG FOR TESTING (Easy to change later) ===
+const SOLANA_RPC = 'https://api.mainnet-beta.solana.com'; // or use devnet: 'https://api.devnet.solana.com' for even cheaper tests
+
 export const connection = new Connection(SOLANA_RPC, 'confirmed');
 
-// $HERO token mint address - UPDATE THIS with your actual token mint
-export const HERO_TOKEN_MINT = new PublicKey(
-  import.meta.env.VITE_HERO_TOKEN_MINT || '11111111111111111111111111111111'
-);
+// Use YOUR wallet address here as the platform/escrow wallet
+// This is where the small test SOL fees will go during "entry fee" payment
+const YOUR_PLATFORM_WALLET = '62hsHB81wV7xyYoU7SD1wjeuQdbKygPw7gFVTxnWZpWA';   // ←←← CHANGE THIS
 
-// Platform fee wallet - UPDATE THIS
-export const PLATFORM_WALLET = new PublicKey(
-  import.meta.env.VITE_PLATFORM_WALLET || '11111111111111111111111111111111'
-);
+export const PLATFORM_WALLET = new PublicKey(YOUR_PLATFORM_WALLET);
 
-// Entry fee in $HERO tokens (smallest unit)
-export const ENTRY_FEE_HERO = 100; // 100 $HERO per match
-export const PLATFORM_FEE_PERCENT = 5; // 5% platform fee
+// We are NOT using $HERO token yet → use SOL as placeholder
+export const ENTRY_FEE_HERO = 0.001;        // Very small SOL amount for testing (0.001 SOL)
+export const PLATFORM_FEE_PERCENT = 5;
 
-// Get SOL balance
+// Dummy mint just to avoid errors (we won't actually use it for transfers yet)
+const DUMMY_MINT = 'So11111111111111111111111111111111111111112'; // Wrapped SOL
+export const HERO_TOKEN_MINT = new PublicKey(DUMMY_MINT);
+
+// =================================================
+
+// Get SOL balance (used for testing)
 export const getSolBalance = async (publicKey) => {
   try {
     const balance = await connection.getBalance(publicKey);
@@ -29,50 +32,36 @@ export const getSolBalance = async (publicKey) => {
   }
 };
 
-// Get $HERO token balance (SPL token)
+// Fake HERO balance → always returns enough for testing
 export const getHeroBalance = async (publicKey) => {
-  try {
-    // For SPL tokens, we need to find the associated token account
-    const { value: tokenAccounts } = await connection.getParsedTokenAccountsByOwner(
-      publicKey,
-      { mint: HERO_TOKEN_MINT }
-    );
-    
-    if (tokenAccounts.length === 0) return 0;
-    
-    const balance = tokenAccounts[0].account.data.parsed.info.tokenAmount.uiAmount;
-    return balance || 0;
-  } catch (err) {
-    console.error('Error fetching HERO balance:', err);
-    return 0;
-  }
+  return 1000; // Always enough during testing
 };
 
-// Validate player has enough $HERO to enter
+// Validate entry (always passes during testing)
 export const validateEntryBalance = async (publicKey) => {
-  const heroBalance = await getHeroBalance(publicKey);
   return {
-    hasEnough: heroBalance >= ENTRY_FEE_HERO,
-    balance: heroBalance,
+    hasEnough: true,
+    balance: 1000,
     required: ENTRY_FEE_HERO,
   };
 };
 
-// Pay entry fee (transfer $HERO to escrow/pool wallet)
-// In production, this should be handled by a smart contract or escrow program
+// Pay entry fee → sends tiny amount of SOL to your platform wallet
 export const payEntryFee = async (wallet, escrowWallet) => {
   try {
     if (!wallet.publicKey || !wallet.signTransaction) {
       throw new Error('Wallet not connected');
     }
 
-    // For now, use SOL transfer as placeholder
-    // In production: use SPL token transfer to escrow program
+    const targetPubkey = escrowWallet 
+      ? new PublicKey(escrowWallet) 
+      : PLATFORM_WALLET;
+
     const transaction = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: wallet.publicKey,
-        toPubkey: new PublicKey(escrowWallet || PLATFORM_WALLET),
-        lamports: 0.001 * LAMPORTS_PER_SOL, // Small SOL fee for gas
+        toPubkey: targetPubkey,
+        lamports: Math.floor(ENTRY_FEE_HERO * LAMPORTS_PER_SOL), // e.g. 0.001 SOL
       })
     );
 
@@ -84,6 +73,7 @@ export const payEntryFee = async (wallet, escrowWallet) => {
     const txId = await connection.sendRawTransaction(signed.serialize());
     await connection.confirmTransaction(txId, 'confirmed');
 
+    console.log(`✅ Test entry fee paid. Tx: ${txId}`);
     return { success: true, txId };
   } catch (err) {
     console.error('Entry fee payment failed:', err);
@@ -91,15 +81,13 @@ export const payEntryFee = async (wallet, escrowWallet) => {
   }
 };
 
-// Distribute prize pool to winner
+// Prize distribution (just logs for now)
 export const distributePrize = async (winnerWallet, prizeAmount) => {
-  // In production: This would be handled by a Solana program (smart contract)
-  // The escrow program would automatically distribute funds
-  console.log(`Prize distribution: ${prizeAmount} $HERO → ${winnerWallet}`);
+  console.log(`🏆 Prize of ${prizeAmount} would go to ${winnerWallet}`);
   return { success: true, amount: prizeAmount };
 };
 
-// Format wallet address for display
+// Format wallet
 export const formatWallet = (address) => {
   if (!address) return '';
   const str = typeof address === 'string' ? address : address.toBase58();

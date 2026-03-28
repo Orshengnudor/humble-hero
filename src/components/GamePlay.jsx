@@ -20,6 +20,8 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
   const [opponents, setOpponents] = useState(initialPlayers);
   const [lastHitEffect, setLastHitEffect] = useState(null);
   const [gameStarted, setGameStarted] = useState(false);
+  const [isRematch, setIsRematch] = useState(false);
+
   const gameRef = useRef(null);
   const spawnTimerRef = useRef(null);
   const cleanupTimerRef = useRef(null);
@@ -30,7 +32,7 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
   const AREA_WIDTH = 320;
   const AREA_HEIGHT = 384;
 
-  // Subscribe to opponent updates
+  // Subscribe to opponent score updates
   useEffect(() => {
     const channel = subscribeToMatch(match.id, async () => {
       const data = await getMatchPlayers(match.id);
@@ -39,14 +41,25 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
     return () => { channel.unsubscribe(); };
   }, [match.id]);
 
-  // Start game
+  // Start game (or rematch)
   useEffect(() => {
+    const delay = isRematch ? 800 : 1200;
     const timer = setTimeout(() => {
       setGameStarted(true);
-      setGameState(prev => ({ ...prev, isActive: true, timeLeft: ROUND_DURATION_SEC }));
-    }, 1000);
+      setGameState(prev => ({ 
+        ...prev, 
+        isActive: true, 
+        timeLeft: ROUND_DURATION_SEC,
+        score: 0,
+        combo: 0,
+        hits: 0,
+        misses: 0,
+        perfectHits: 0,
+        totalReactionTime: 0,
+      }));
+    }, delay);
     return () => clearTimeout(timer);
-  }, []);
+  }, [isRematch]);
 
   // Game timer
   useEffect(() => {
@@ -55,7 +68,6 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
     tickRef.current = setInterval(() => {
       setGameState(prev => {
         if (prev.timeLeft <= 1) {
-          // Game over
           clearInterval(tickRef.current);
           clearTimeout(spawnTimerRef.current);
           clearInterval(cleanupTimerRef.current);
@@ -69,42 +81,48 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
     return () => clearInterval(tickRef.current);
   }, [gameStarted]);
 
-  // Spawn targets
+  // Spawn targets - More competitive (faster near end + slight drift)
   useEffect(() => {
     if (!gameStarted || !gameState.isActive) return;
 
     const scheduleSpawn = () => {
+      const timeLeftFactor = Math.max(0.55, gameState.timeLeft / ROUND_DURATION_SEC); // faster as time runs out
       spawnTimerRef.current = setTimeout(() => {
         setGameState(prev => {
+          let newTargets = [...prev.targets];
+
           const target = spawnTarget(prev, AREA_WIDTH, AREA_HEIGHT);
           if (target) {
-            return { ...prev, targets: [...prev.targets, target] };
+            // Add slight random drift to make it more dynamic
+            target.x += (Math.random() - 0.5) * 8;
+            target.y += (Math.random() - 0.5) * 8;
+            newTargets.push(target);
           }
-          return prev;
+
+          return { ...prev, targets: newTargets };
         });
+
         if (gsRef.current.isActive) scheduleSpawn();
-      }, getRandomSpawnInterval());
+      }, getRandomSpawnInterval() * timeLeftFactor);
     };
 
     scheduleSpawn();
+
     return () => clearTimeout(spawnTimerRef.current);
-  }, [gameStarted, gameState.isActive]);
+  }, [gameStarted, gameState.isActive, gameState.timeLeft]);
 
   // Cleanup expired targets
   useEffect(() => {
     if (!gameStarted) return;
-
     cleanupTimerRef.current = setInterval(() => {
       setGameState(prev => removeExpiredTargets({ ...prev }));
-    }, 200);
-
+    }, 180);
     return () => clearInterval(cleanupTimerRef.current);
   }, [gameStarted]);
 
-  // Sync score to Supabase periodically
+  // Sync score to Supabase
   useEffect(() => {
     if (!gameStarted || !publicKey) return;
-
     const syncInterval = setInterval(() => {
       const gs = gsRef.current;
       updatePlayerScore(
@@ -113,8 +131,7 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
         gs.score,
         getAvgReactionTime(gs)
       );
-    }, 2000);
-
+    }, 1800);
     return () => clearInterval(syncInterval);
   }, [gameStarted, publicKey, match.id]);
 
@@ -123,7 +140,7 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
       const newState = hitTarget({ ...prev, targets: [...prev.targets] }, targetId);
       if (newState.lastHit) {
         setLastHitEffect(newState.lastHit);
-        setTimeout(() => setLastHitEffect(null), 600);
+        setTimeout(() => setLastHitEffect(null), 650);
       }
       return newState;
     });
@@ -131,7 +148,7 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
 
   const handleGameOver = async (finalState) => {
     if (!publicKey) return;
-    
+
     // Final score sync
     await updatePlayerScore(
       match.id,
@@ -140,13 +157,23 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
       getAvgReactionTime(finalState)
     );
 
-    // Wait a moment for all players to finish
+    // Wait for all players to finish
     setTimeout(async () => {
       const allPlayers = await getMatchPlayers(match.id);
-      const sorted = allPlayers.sort((a, b) => b.score - a.score);
-      const winner = sorted[0];
+      const sorted = [...allPlayers].sort((a, b) => b.score - a.score);
+      const maxScore = sorted[0]?.score || 0;
+      const tiedPlayers = sorted.filter(p => p.score === maxScore);
 
-      // Host determines winner
+      if (tiedPlayers.length > 1 && tiedPlayers.length < allPlayers.length) {
+        // Tie detected → Auto rematch only between tied players
+        console.log(`🔄 Tie detected! Rematch between ${tiedPlayers.length} players`);
+        setIsRematch(true);
+        setGameState(createGameState()); // Reset for rematch
+        return;
+      }
+
+      // Clear winner → End match
+      const winner = sorted[0];
       if (publicKey.toBase58() === match.host_wallet) {
         await finishMatch(match.id, winner.wallet_address);
       }
@@ -158,7 +185,7 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
         isWinner: winner.wallet_address === publicKey.toBase58(),
         prizePool: match.prize_pool || match.entry_fee * allPlayers.length,
       });
-    }, 2000);
+    }, 1600);
   };
 
   const myOpponentData = opponents.find(p => p.wallet_address !== publicKey?.toBase58());
@@ -192,30 +219,29 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
               <span className="opp-name">{formatWallet(p.wallet_address)}</span>
               <span className="opp-score">{p.score || 0}</span>
             </div>
-          ))
-        }
+          ))}
       </div>
 
       {/* Game Area */}
       <div className="game-play-area" ref={gameRef}>
         {!gameStarted && (
           <div className="game-countdown-overlay">
-            <div className="big-text">GET READY!</div>
+            <div className="big-text">{isRematch ? "REMATCH!" : "GET READY!"}</div>
           </div>
         )}
 
         {gameState.targets.map(target => {
           const progress = (Date.now() - target.spawnedAt) / target.lifetime;
-          const opacity = Math.max(0.3, 1 - progress * 0.7);
-          const scale = 1 - progress * 0.3;
+          const opacity = Math.max(0.3, 1 - progress * 0.75);
+          const scale = 1 - progress * 0.35;
 
           return (
             <button
               key={target.id}
               className={`game-target target-${target.type}`}
               style={{
-                left: target.x,
-                top: target.y,
+                left: `${target.x}px`,
+                top: `${target.y}px`,
                 width: target.size,
                 height: target.size,
                 opacity,
