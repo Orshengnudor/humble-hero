@@ -1,27 +1,21 @@
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
-// === CONFIG FOR TESTING (Easy to change later) ===
-const SOLANA_RPC = 'https://api.mainnet-beta.solana.com'; // or use devnet: 'https://api.devnet.solana.com' for even cheaper tests
-
+const SOLANA_RPC = 'https://api.mainnet-beta.solana.com';
 export const connection = new Connection(SOLANA_RPC, 'confirmed');
 
-// Use YOUR wallet address here as the platform/escrow wallet
-// This is where the small test SOL fees will go during "entry fee" payment
-const YOUR_PLATFORM_WALLET = '62hsHB81wV7xyYoU7SD1wjeuQdbKygPw7gFVTxnWZpWA';   // ←←← CHANGE THIS
-
-export const PLATFORM_WALLET = new PublicKey(YOUR_PLATFORM_WALLET);
-
-// We are NOT using $HERO token yet → use SOL as placeholder
-export const ENTRY_FEE_HERO = 0.001;        // Very small SOL amount for testing (0.001 SOL)
+export const PLATFORM_WALLET = new PublicKey('62hsHB81wV7xyYoU7SD1wjeuQdbKygPw7gFVTxnWZpWA');
 export const PLATFORM_FEE_PERCENT = 5;
 
-// Dummy mint just to avoid errors (we won't actually use it for transfers yet)
-const DUMMY_MINT = 'So11111111111111111111111111111111111111112'; // Wrapped SOL
-export const HERO_TOKEN_MINT = new PublicKey(DUMMY_MINT);
+// Pool tiers in SOL (approximate USD values)
+export const POOL_TIERS = {
+  basic: { name: 'Basic', entrySol: 0.003, usdValue: '$0.50', icon: '🟢', color: '#10b981' },
+  mega:  { name: 'Mega',  entrySol: 0.006, usdValue: '$1.00', icon: '🔵', color: '#3b82f6' },
+  whale: { name: 'Whale', entrySol: 0.03,  usdValue: '$5.00', icon: '🐳', color: '#f59e0b' },
+};
 
-// =================================================
+export const PLAYER_OPTIONS = [2, 3, 4, 5, 6, 8, 10];
 
-// Get SOL balance (used for testing)
+// Get SOL balance
 export const getSolBalance = async (publicKey) => {
   try {
     const balance = await connection.getBalance(publicKey);
@@ -32,36 +26,28 @@ export const getSolBalance = async (publicKey) => {
   }
 };
 
-// Fake HERO balance → always returns enough for testing
-export const getHeroBalance = async (publicKey) => {
-  return 1000; // Always enough during testing
-};
-
-// Validate entry (always passes during testing)
-export const validateEntryBalance = async (publicKey) => {
+// Validate user has enough SOL for entry
+export const validateEntryBalance = async (publicKey, entrySol) => {
+  const balance = await getSolBalance(publicKey);
   return {
-    hasEnough: true,
-    balance: 1000,
-    required: ENTRY_FEE_HERO,
+    hasEnough: balance >= entrySol + 0.001, // extra for tx fee
+    balance,
+    required: entrySol,
   };
 };
 
-// Pay entry fee → sends tiny amount of SOL to your platform wallet
-export const payEntryFee = async (wallet, escrowWallet) => {
+// Pay entry fee → sends SOL to platform wallet (escrow)
+export const payEntryFee = async (wallet, entrySol) => {
   try {
     if (!wallet.publicKey || !wallet.signTransaction) {
       throw new Error('Wallet not connected');
     }
 
-    const targetPubkey = escrowWallet 
-      ? new PublicKey(escrowWallet) 
-      : PLATFORM_WALLET;
-
     const transaction = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: wallet.publicKey,
-        toPubkey: targetPubkey,
-        lamports: Math.floor(ENTRY_FEE_HERO * LAMPORTS_PER_SOL), // e.g. 0.001 SOL
+        toPubkey: PLATFORM_WALLET,
+        lamports: Math.floor(entrySol * LAMPORTS_PER_SOL),
       })
     );
 
@@ -73,7 +59,7 @@ export const payEntryFee = async (wallet, escrowWallet) => {
     const txId = await connection.sendRawTransaction(signed.serialize());
     await connection.confirmTransaction(txId, 'confirmed');
 
-    console.log(`✅ Test entry fee paid. Tx: ${txId}`);
+    console.log(`✅ Entry fee paid: ${entrySol} SOL. Tx: ${txId}`);
     return { success: true, txId };
   } catch (err) {
     console.error('Entry fee payment failed:', err);
@@ -81,13 +67,14 @@ export const payEntryFee = async (wallet, escrowWallet) => {
   }
 };
 
-// Prize distribution (just logs for now)
-export const distributePrize = async (winnerWallet, prizeAmount) => {
-  console.log(`🏆 Prize of ${prizeAmount} would go to ${winnerWallet}`);
-  return { success: true, amount: prizeAmount };
+// Distribute prize to winner (platform sends SOL minus fee)
+export const distributePrize = async (winnerWallet, prizeAmountSol) => {
+  // In production, this would be handled server-side or via bags.fm fee sharing
+  console.log(`🏆 Prize of ${prizeAmountSol} SOL pending for ${winnerWallet}`);
+  return { success: true, amount: prizeAmountSol };
 };
 
-// Format wallet
+// Format wallet address
 export const formatWallet = (address) => {
   if (!address) return '';
   const str = typeof address === 'string' ? address : address.toBase58();

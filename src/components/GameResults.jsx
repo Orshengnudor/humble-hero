@@ -7,13 +7,13 @@ export default function GameResults({ results, onBackToLobby }) {
   return (
     <div className="game-results">
       <div className="results-card">
-        {/* Winner Banner */}
         <div className={`winner-banner ${isWinner ? 'you-won' : ''}`}>
           {isWinner ? (
             <>
               <Trophy size={48} className="trophy-icon" />
               <h1>YOU WIN!</h1>
-              <p className="prize-won">🏆 {prizePool} $HERO</p>
+              <p className="prize-won">🏆 {prizePool?.toFixed(4)} SOL</p>
+              <p className="claim-hint">Go to Dashboard to claim your prize!</p>
             </>
           ) : (
             <>
@@ -24,43 +24,21 @@ export default function GameResults({ results, onBackToLobby }) {
           )}
         </div>
 
-        {/* Your Stats */}
         <div className="your-stats">
           <h3>Your Performance</h3>
           <div className="stats-grid">
-            <div className="stat-card">
-              <Zap size={20} />
-              <span className="stat-val">{score}</span>
-              <span className="stat-lbl">Score</span>
-            </div>
-            <div className="stat-card">
-              <Target size={20} />
-              <span className="stat-val">{hits}</span>
-              <span className="stat-lbl">Hits</span>
-            </div>
-            <div className="stat-card">
-              <Star size={20} />
-              <span className="stat-val">{perfectHits}</span>
-              <span className="stat-lbl">Perfect</span>
-            </div>
-            <div className="stat-card">
-              <span className="stat-val">x{maxCombo}</span>
-              <span className="stat-lbl">Best Combo</span>
-            </div>
+            <div className="stat-card"><Zap size={20} /><span className="stat-val">{score}</span><span className="stat-lbl">Score</span></div>
+            <div className="stat-card"><Target size={20} /><span className="stat-val">{hits}</span><span className="stat-lbl">Hits</span></div>
+            <div className="stat-card"><Star size={20} /><span className="stat-val">{perfectHits}</span><span className="stat-lbl">Perfect</span></div>
+            <div className="stat-card"><span className="stat-val">x{maxCombo}</span><span className="stat-lbl">Best Combo</span></div>
           </div>
         </div>
 
-        {/* Leaderboard */}
         <div className="results-leaderboard">
           <h3>Final Rankings</h3>
           {allPlayers.map((p, i) => (
-            <div 
-              key={p.id} 
-              className={`rank-row ${i === 0 ? 'winner' : ''} ${p.wallet_address === winner ? 'is-winner' : ''}`}
-            >
-              <span className="rank-pos">
-                {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
-              </span>
+            <div key={p.id} className={`rank-row ${i === 0 ? 'winner' : ''} ${p.wallet_address === winner ? 'is-winner' : ''}`}>
+              <span className="rank-pos">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}</span>
               <span className="rank-wallet">{formatWallet(p.wallet_address)}</span>
               <span className="rank-score">{p.score} pts</span>
               <span className="rank-reaction">{p.avg_reaction_time || '—'}ms</span>

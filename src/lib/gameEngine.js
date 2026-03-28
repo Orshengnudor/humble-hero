@@ -1,27 +1,28 @@
 // Humble Hero - Reaction Game Engine
-// Fast-paced reaction game where players tap targets as quickly as possible
+// 60-second competitive rounds with anti-exploit protections
 
-const ROUND_DURATION = 30; // seconds per round
-const SPAWN_INTERVAL_MIN = 400; // ms
-const SPAWN_INTERVAL_MAX = 1200; // ms
-const TARGET_LIFETIME = 2000; // ms before target disappears
-const MAX_TARGETS_ON_SCREEN = 5;
-const PERFECT_THRESHOLD = 300; // ms for "perfect" reaction
-const GOOD_THRESHOLD = 600; // ms for "good" reaction
-const COMBO_DECAY_TIME = 2000; // ms before combo resets
+const ROUND_DURATION = 60; // 1 minute per round
+const SPAWN_INTERVAL_MIN = 350;
+const SPAWN_INTERVAL_MAX = 1000;
+const TARGET_LIFETIME = 1800;
+const MAX_TARGETS_ON_SCREEN = 6;
+const PERFECT_THRESHOLD = 250;
+const GOOD_THRESHOLD = 500;
 
-// Score multipliers
+// Anti-exploit: minimum humanly possible reaction time
+const MIN_REACTION_TIME = 80; // ms - anything faster is bot/exploit
+const MAX_CLICKS_PER_SECOND = 8; // rate limiter
+
 const SCORE_PERFECT = 100;
 const SCORE_GOOD = 50;
 const SCORE_OK = 25;
 const SCORE_MISS = -10;
 
-// Target types with different point values
 const TARGET_TYPES = [
-  { type: 'normal', color: '#8b5cf6', points: 1, chance: 0.5, size: 50 },
-  { type: 'fast', color: '#f59e0b', points: 2, chance: 0.25, size: 40 },
-  { type: 'bonus', color: '#10b981', points: 3, chance: 0.15, size: 35 },
-  { type: 'trap', color: '#ef4444', points: -2, chance: 0.1, size: 55 },
+  { type: 'normal', color: '#8b5cf6', points: 1, chance: 0.5, size: 48 },
+  { type: 'fast', color: '#f59e0b', points: 2, chance: 0.25, size: 38 },
+  { type: 'bonus', color: '#10b981', points: 3, chance: 0.15, size: 32 },
+  { type: 'trap', color: '#ef4444', points: -2, chance: 0.1, size: 52 },
 ];
 
 export const createGameState = () => ({
@@ -37,6 +38,9 @@ export const createGameState = () => ({
   isActive: false,
   round: 1,
   nextTargetId: 0,
+  // Anti-exploit tracking
+  clickTimestamps: [],
+  suspiciousActions: 0,
 });
 
 export const getTargetType = () => {
@@ -51,33 +55,47 @@ export const getTargetType = () => {
 
 export const spawnTarget = (gameState, areaWidth, areaHeight) => {
   if (gameState.targets.length >= MAX_TARGETS_ON_SCREEN) return null;
-  
+
   const targetType = getTargetType();
   const padding = 10;
   const x = padding + Math.random() * (areaWidth - targetType.size - padding * 2);
   const y = padding + Math.random() * (areaHeight - targetType.size - padding * 2);
-  
-  const target = {
+
+  return {
     id: gameState.nextTargetId++,
     x,
     y,
     ...targetType,
     spawnedAt: Date.now(),
-    lifetime: TARGET_LIFETIME + Math.random() * 500,
+    lifetime: TARGET_LIFETIME + Math.random() * 400,
   };
-  
-  return target;
 };
 
 export const hitTarget = (gameState, targetId) => {
   const target = gameState.targets.find(t => t.id === targetId);
   if (!target) return { ...gameState };
-  
-  const reactionTime = Date.now() - target.spawnedAt;
-  
+
+  const now = Date.now();
+  const reactionTime = now - target.spawnedAt;
+
+  // Anti-exploit: check for inhuman reaction time
+  if (reactionTime < MIN_REACTION_TIME) {
+    gameState.suspiciousActions++;
+    // Silently ignore suspiciously fast clicks
+    return { ...gameState };
+  }
+
+  // Anti-exploit: rate limiting
+  gameState.clickTimestamps = gameState.clickTimestamps.filter(t => now - t < 1000);
+  if (gameState.clickTimestamps.length >= MAX_CLICKS_PER_SECOND) {
+    gameState.suspiciousActions++;
+    return { ...gameState };
+  }
+  gameState.clickTimestamps.push(now);
+
   let scoreGain;
   let hitQuality;
-  
+
   if (target.type === 'trap') {
     scoreGain = SCORE_MISS * 2;
     hitQuality = 'trap';
@@ -96,17 +114,16 @@ export const hitTarget = (gameState, targetId) => {
     hitQuality = 'ok';
     gameState.combo++;
   }
-  
-  // Apply combo multiplier
+
   const comboMultiplier = 1 + Math.floor(gameState.combo / 5) * 0.5;
   scoreGain = Math.round(scoreGain * comboMultiplier);
-  
+
   gameState.maxCombo = Math.max(gameState.maxCombo, gameState.combo);
   gameState.score = Math.max(0, gameState.score + scoreGain);
   gameState.hits++;
   gameState.totalReactionTime += reactionTime;
   gameState.targets = gameState.targets.filter(t => t.id !== targetId);
-  
+
   return {
     ...gameState,
     lastHit: {
@@ -123,13 +140,13 @@ export const hitTarget = (gameState, targetId) => {
 export const removeExpiredTargets = (gameState) => {
   const now = Date.now();
   const expired = gameState.targets.filter(t => now - t.spawnedAt > t.lifetime);
-  
+
   if (expired.length > 0) {
     gameState.misses += expired.filter(t => t.type !== 'trap').length;
     gameState.combo = 0;
     gameState.targets = gameState.targets.filter(t => now - t.spawnedAt <= t.lifetime);
   }
-  
+
   return gameState;
 };
 
