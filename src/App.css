@@ -885,6 +885,235 @@
   color: hsl(270, 15%, 40%);
 }
 
+/* ===== Pool Tier Selection ===== */
+.tier-select {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.tier-btn {
+  background: hsla(270, 35%, 20%, 0.8);
+  border: 2px solid hsla(270, 20%, 30%, 0.5);
+  border-radius: 12px;
+  padding: 0.75rem 0.5rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  transition: all 0.2s;
+  color: hsl(270, 20%, 70%);
+}
+
+.tier-btn:hover {
+  border-color: var(--tier-color, hsl(265, 89%, 58%));
+  background: hsla(270, 35%, 22%, 0.9);
+}
+
+.tier-btn.active {
+  border-color: var(--tier-color, hsl(265, 89%, 58%));
+  background: hsla(270, 35%, 22%, 0.9);
+  box-shadow: 0 0 15px color-mix(in srgb, var(--tier-color) 30%, transparent);
+}
+
+.tier-icon { font-size: 1.5rem; }
+.tier-name { font-size: 0.85rem; font-weight: 700; color: hsl(0, 0%, 95%); }
+.tier-price { font-size: 0.75rem; font-weight: 600; color: hsl(38, 92%, 60%); }
+.tier-sol { font-size: 0.65rem; color: hsl(270, 15%, 50%); }
+
+/* SOL balance badge */
+.sol-balance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.75rem;
+  background: hsla(160, 84%, 39%, 0.15);
+  border: 1px solid hsla(160, 84%, 39%, 0.3);
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: hsl(160, 84%, 50%);
+}
+
+.lobby-error {
+  background: hsla(0, 84%, 50%, 0.15);
+  border: 1px solid hsla(0, 84%, 50%, 0.3);
+  color: hsl(0, 84%, 65%);
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+/* Match card tier badge */
+.match-tier-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  color: var(--tier-color, hsl(265, 89%, 68%));
+}
+
+.match-remaining {
+  color: hsl(38, 92%, 60%);
+  font-weight: 600;
+}
+
+.match-progress-bar {
+  height: 4px;
+  background: hsla(270, 20%, 25%, 0.5);
+  border-radius: 2px;
+  margin-top: 0.5rem;
+  overflow: hidden;
+}
+
+.match-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, hsl(160, 84%, 39%), hsl(160, 84%, 50%));
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+
+/* Matchmaking tier badge */
+.mm-tier-badge {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-bottom: 0.35rem;
+}
+
+.mm-slots-info {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+
+.slots-joined { color: hsl(160, 84%, 50%); font-weight: 700; }
+.slots-remaining { color: hsl(38, 92%, 60%); font-weight: 700; }
+
+/* Claim hint */
+.claim-hint {
+  font-size: 0.85rem;
+  color: hsl(160, 84%, 50%);
+  margin-top: 0.5rem;
+}
+
+/* ===== Dashboard ===== */
+.dashboard {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-header svg { color: hsl(38, 92%, 60%); }
+.dashboard-header h2 { font-size: 1.25rem; font-weight: 800; }
+
+.dashboard-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.summary-card {
+  background: hsla(270, 35%, 16%, 0.8);
+  border: 1px solid hsla(270, 20%, 22%, 0.6);
+  border-radius: 14px;
+  padding: 1.25rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.summary-card svg { color: hsl(38, 92%, 60%); }
+.summary-val { font-size: 1.5rem; font-weight: 900; color: hsl(160, 84%, 50%); }
+.summary-lbl { font-size: 0.75rem; color: hsl(270, 15%, 50%); }
+
+.claim-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.claim-card {
+  background: hsla(270, 35%, 16%, 0.8);
+  border: 1px solid hsla(270, 20%, 22%, 0.6);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s;
+}
+
+.claim-card:hover {
+  border-color: hsla(38, 92%, 50%, 0.4);
+}
+
+.claim-tier {
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.claim-details {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: hsl(270, 15%, 50%);
+  margin-bottom: 0.25rem;
+}
+
+.claim-payout {
+  font-weight: 800;
+  font-size: 1rem;
+  color: hsl(38, 92%, 60%);
+}
+
+.claim-date {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  color: hsl(270, 15%, 40%);
+  margin-top: 0.25rem;
+}
+
+.claim-btn {
+  background: linear-gradient(135deg, hsl(38, 92%, 50%), hsl(38, 92%, 40%));
+  color: white;
+  border: none;
+  padding: 0.6rem 1.5rem;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.claim-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px hsla(38, 92%, 50%, 0.3);
+}
+
+.claim-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 640px) {
   .game-header {
