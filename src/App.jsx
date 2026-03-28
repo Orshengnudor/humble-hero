@@ -8,6 +8,7 @@ import Matchmaking from './components/Matchmaking';
 import GamePlay from './components/GamePlay';
 import GameResults from './components/GameResults';
 import Leaderboard from './components/Leaderboard';
+import Dashboard from './components/Dashboard';
 import { updateLeaderboard } from './lib/supabase';
 import './App.css';
 
@@ -22,7 +23,6 @@ function GameApp() {
   const [prizePool, setPrizePool] = useState(0);
   const [isDarkMode, setIsDarkMode] = useState(true);
 
-  // Toggle dark mode
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -48,14 +48,9 @@ function GameApp() {
     setGameResults(results);
     setActiveView('results');
 
-    // Update leaderboard for ALL players
     if (publicKey) {
       const isWinner = results.winner === publicKey.toBase58();
-      await updateLeaderboard(
-        publicKey.toBase58(),
-        isWinner,
-        results.score
-      );
+      await updateLeaderboard(publicKey.toBase58(), isWinner, results.score);
     }
   };
 
@@ -76,16 +71,12 @@ function GameApp() {
   const renderView = () => {
     switch (activeView) {
       case 'lobby': return <Lobby onJoinMatch={handleJoinMatch} />;
-      case 'matchmaking':
-        return <Matchmaking match={currentMatch} onGameStart={handleGameStart} onLeave={handleLeaveMatch} />;
-      case 'game':
-        return <GamePlay match={currentMatch} players={matchPlayers} onGameEnd={handleGameEnd} />;
-      case 'results':
-        return <GameResults results={gameResults} onBackToLobby={handleBackToLobby} />;
-      case 'leaderboard':
-        return <Leaderboard />;
-      default:
-        return <Lobby onJoinMatch={handleJoinMatch} />;
+      case 'matchmaking': return <Matchmaking match={currentMatch} onGameStart={handleGameStart} onLeave={handleLeaveMatch} />;
+      case 'game': return <GamePlay match={currentMatch} players={matchPlayers} onGameEnd={handleGameEnd} />;
+      case 'results': return <GameResults results={gameResults} onBackToLobby={handleBackToLobby} />;
+      case 'leaderboard': return <Leaderboard />;
+      case 'dashboard': return <Dashboard />;
+      default: return <Lobby onJoinMatch={handleJoinMatch} />;
     }
   };
 
@@ -98,9 +89,7 @@ function GameApp() {
         isDarkMode={isDarkMode}
         toggleDarkMode={() => setIsDarkMode(!isDarkMode)}
       />
-      <main className="app-main">
-        {renderView()}
-      </main>
+      <main className="app-main">{renderView()}</main>
     </div>
   );
 }
