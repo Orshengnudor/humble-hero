@@ -14,6 +14,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-phantom": "^0.9.28",
     "@solana/wallet-adapter-react": "^0.15.39",
@@ -22,6 +23,7 @@
     "@solana/web3.js": "1",
     "@supabase/supabase-js": "^2.100.1",
     "buffer": "^6.0.3",
+    "dotenv": "^17.3.1",
     "lucide-react": "^1.7.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

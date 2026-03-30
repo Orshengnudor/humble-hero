@@ -1,5 +1,29 @@
 /* ===== Humble Hero - App Styles ===== */
 
+:root,
+[data-theme="dark"] {
+  --bg-primary:    hsl(0, 0%, 4%);
+  --bg-secondary:  hsl(0, 0%, 7%);
+  --bg-card:       hsl(0, 0%, 10%);
+  --bg-card-hover: hsl(0, 0%, 13%);
+  --bg-input:      hsl(0, 0%, 11%);
+  --text-primary:  hsl(0, 0%, 97%);
+  --text-secondary: hsl(270, 10%, 70%);
+  --text-muted:    hsl(270, 8%, 50%);
+  --accent:        hsl(160, 84%, 39%);
+  --accent-glow:   hsl(160, 84%, 50%);
+  --primary:       hsl(265, 89%, 60%);
+  --primary-glow:  hsl(265, 89%, 70%);
+  --warning:       hsl(38,  92%, 52%);
+  --danger:        hsl(0,   84%, 55%);
+  --border:        hsl(0, 0%, 15%);
+  --border-glow:   hsl(265, 60%, 38%);
+  --shadow:        0 8px 40px hsla(0, 0%, 0%, 0.6);
+  --header-bg:     hsla(0, 0%, 4%, 0.92);
+  --overlay-bg:    hsla(0, 0%, 3%, 0.9);
+  --game-area-bg:  linear-gradient(145deg, hsl(0, 0%, 8%), hsl(0, 0%, 4%));
+}
+
 /* Layout */
 .app-container {
   min-height: 100vh;
@@ -21,9 +45,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
-  background: hsla(270, 35%, 16%, 0.8);
+  background: var(--header-bg);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid hsla(270, 20%, 22%, 0.6);
+  border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -36,13 +60,13 @@
 }
 
 .header-left .text-accent {
-  color: hsl(160, 84%, 39%);
+  color: var(--accent);
 }
 
 .header-title {
   font-size: 1.25rem;
   font-weight: 800;
-  background: linear-gradient(135deg, hsl(265, 89%, 68%), hsl(160, 84%, 50%));
+  background: linear-gradient(135deg, var(--primary-glow), var(--accent-glow));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -54,9 +78,9 @@
 }
 
 .nav-btn {
-  background: hsla(270, 35%, 20%, 0.6);
-  border: 1px solid hsla(270, 20%, 30%, 0.4);
-  color: hsl(270, 20%, 70%);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
   padding: 0.5rem 1rem;
   border-radius: 8px;
   cursor: pointer;
@@ -70,8 +94,8 @@
 
 .nav-btn:hover, .nav-btn.active {
   background: hsla(265, 60%, 40%, 0.3);
-  border-color: hsl(265, 60%, 40%);
-  color: hsl(0, 0%, 98%);
+  border-color: var(--primary);
+  color: var(--text-primary);
 }
 
 .header-right {
@@ -83,7 +107,7 @@
 .prize-badge {
   background: linear-gradient(135deg, hsla(38, 92%, 50%, 0.2), hsla(38, 92%, 50%, 0.1));
   border: 1px solid hsla(38, 92%, 50%, 0.4);
-  color: hsl(38, 92%, 60%);
+  color: var(--warning);
   padding: 0.4rem 0.75rem;
   border-radius: 20px;
   font-size: 0.8rem;
@@ -96,7 +120,7 @@
   font-size: 0.85rem !important;
   height: 40px !important;
   border-radius: 10px !important;
-  background: linear-gradient(135deg, hsl(265, 89%, 58%), hsl(265, 89%, 45%)) !important;
+  background: linear-gradient(135deg, var(--primary), hsl(265, 89%, 45%)) !important;
 }
 
 /* ===== Hero / Connect Screen ===== */
@@ -126,7 +150,7 @@
 .hero-section h1 {
   font-size: 3rem;
   font-weight: 900;
-  background: linear-gradient(135deg, hsl(265, 89%, 68%), hsl(160, 84%, 50%), hsl(38, 92%, 50%));
+  background: linear-gradient(135deg, var(--primary-glow), var(--accent-glow), var(--warning));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -135,12 +159,12 @@
 
 .hero-subtitle {
   font-size: 1.1rem;
-  color: hsl(270, 20%, 70%);
+  color: var(--text-secondary);
   margin-bottom: 0.5rem;
 }
 
 .hero-desc {
-  color: hsl(270, 15%, 50%);
+  color: var(--text-muted);
   font-size: 0.9rem;
   margin-bottom: 2rem;
   line-height: 1.6;
@@ -154,8 +178,8 @@
 }
 
 .feature-card {
-  background: hsla(270, 35%, 16%, 0.8);
-  border: 1px solid hsla(270, 20%, 22%, 0.6);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 1rem;
   display: flex;
@@ -163,11 +187,11 @@
   gap: 0.5rem;
   font-size: 0.85rem;
   font-weight: 600;
-  color: hsl(270, 20%, 80%);
+  color: var(--text-secondary);
 }
 
 .feature-card svg {
-  color: hsl(160, 84%, 50%);
+  color: var(--accent);
   flex-shrink: 0;
 }
 
@@ -189,14 +213,14 @@
 }
 
 .lobby-header p {
-  color: hsl(270, 15%, 50%);
+  color: var(--text-muted);
   font-size: 0.85rem;
 }
 
 /* Create Match Card */
 .create-match-card {
-  background: hsla(270, 35%, 16%, 0.8);
-  border: 1px solid hsla(265, 60%, 40%, 0.3);
+  background: var(--bg-card);
+  border: 1px solid var(--border-glow);
   border-radius: 16px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
@@ -208,7 +232,7 @@
   gap: 0.5rem;
   font-size: 1rem;
   margin-bottom: 1rem;
-  color: hsl(160, 84%, 50%);
+  color: var(--accent);
 }
 
 .create-options {
@@ -221,7 +245,7 @@
 .option-group label {
   display: block;
   font-size: 0.75rem;
-  color: hsl(270, 15%, 50%);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.5rem;
@@ -234,9 +258,9 @@
 }
 
 .player-opt {
-  background: hsla(270, 35%, 20%, 0.8);
-  border: 1px solid hsla(270, 20%, 30%, 0.5);
-  color: hsl(270, 20%, 70%);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
   width: 36px;
   height: 36px;
   border-radius: 8px;
@@ -248,14 +272,14 @@
 
 .player-opt:hover, .player-opt.active {
   background: hsla(265, 89%, 58%, 0.3);
-  border-color: hsl(265, 89%, 58%);
+  border-color: var(--primary);
   color: white;
 }
 
 .fee-display, .prize-preview {
   font-size: 1.1rem;
   font-weight: 700;
-  color: hsl(38, 92%, 60%);
+  color: var(--warning);
 }
 
 .create-btn {
@@ -263,7 +287,7 @@
   padding: 0.75rem;
   border: none;
   border-radius: 12px;
-  background: linear-gradient(135deg, hsl(160, 84%, 39%), hsl(160, 84%, 30%));
+  background: linear-gradient(135deg, var(--accent), hsl(160, 84%, 30%));
   color: white;
   font-weight: 700;
   font-size: 1rem;
@@ -285,21 +309,21 @@
 .matches-section h3 {
   font-size: 1rem;
   margin-bottom: 0.75rem;
-  color: hsl(270, 20%, 70%);
+  color: var(--text-secondary);
 }
 
 .no-matches {
   text-align: center;
   padding: 2rem;
-  color: hsl(270, 15%, 40%);
-  background: hsla(270, 35%, 14%, 0.5);
+  color: var(--text-muted);
+  background: var(--bg-secondary);
   border-radius: 12px;
-  border: 1px dashed hsla(270, 20%, 25%, 0.5);
+  border: 1px dashed var(--border);
 }
 
 .match-card {
-  background: hsla(270, 35%, 16%, 0.8);
-  border: 1px solid hsla(270, 20%, 22%, 0.6);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 1rem;
   display: flex;
@@ -310,8 +334,8 @@
 }
 
 .match-card:hover {
-  border-color: hsla(265, 60%, 40%, 0.5);
-  background: hsla(270, 35%, 18%, 0.9);
+  border-color: var(--border-glow);
+  background: var(--bg-card-hover);
 }
 
 .match-host {
@@ -324,11 +348,11 @@
   display: flex;
   gap: 0.75rem;
   font-size: 0.75rem;
-  color: hsl(270, 15%, 50%);
+  color: var(--text-muted);
 }
 
 .join-btn {
-  background: linear-gradient(135deg, hsl(265, 89%, 58%), hsl(265, 89%, 45%));
+  background: linear-gradient(135deg, var(--primary), hsl(265, 89%, 45%));
   color: white;
   border: none;
   padding: 0.5rem 1.25rem;
@@ -357,8 +381,8 @@
 }
 
 .matchmaking-card {
-  background: hsla(270, 35%, 16%, 0.9);
-  border: 1px solid hsla(265, 60%, 40%, 0.3);
+  background: var(--bg-card);
+  border: 1px solid var(--border-glow);
   border-radius: 20px;
   padding: 2rem;
   max-width: 420px;
@@ -374,7 +398,7 @@
 
 .match-id {
   font-size: 0.75rem;
-  color: hsl(270, 15%, 40%);
+  color: var(--text-muted);
   font-family: monospace;
 }
 
@@ -382,23 +406,23 @@
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  border: 4px solid hsla(265, 60%, 40%, 0.3);
+  border: 4px solid var(--border-glow);
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 1.5rem auto;
-  background: hsla(270, 35%, 12%, 0.5);
+  background: var(--bg-secondary);
 }
 
 .ring-number {
   font-size: 2.5rem;
   font-weight: 900;
-  color: hsl(160, 84%, 50%);
+  color: var(--accent);
 }
 
 .ring-label {
   font-size: 1rem;
-  color: hsl(270, 15%, 50%);
+  color: var(--text-muted);
 }
 
 .prize-display {
@@ -407,7 +431,7 @@
 
 .prize-label {
   font-size: 0.75rem;
-  color: hsl(270, 15%, 50%);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   display: block;
@@ -416,7 +440,7 @@
 .prize-amount {
   font-size: 1.5rem;
   font-weight: 800;
-  color: hsl(38, 92%, 60%);
+  color: var(--warning);
 }
 
 .players-list {
@@ -431,7 +455,7 @@
   padding: 0.5rem 0.75rem;
   border-radius: 8px;
   margin-bottom: 0.25rem;
-  background: hsla(270, 35%, 20%, 0.5);
+  background: var(--bg-input);
   font-size: 0.85rem;
 }
 
@@ -441,7 +465,7 @@
 
 .player-num {
   font-weight: 700;
-  color: hsl(265, 89%, 68%);
+  color: var(--primary);
   min-width: 28px;
 }
 
@@ -460,22 +484,22 @@
 
 .host-badge {
   background: hsla(38, 92%, 50%, 0.2);
-  color: hsl(38, 92%, 60%);
+  color: var(--warning);
 }
 
 .you-badge {
   background: hsla(160, 84%, 39%, 0.2);
-  color: hsl(160, 84%, 50%);
+  color: var(--accent);
 }
 
 .player-ready {
-  color: hsl(160, 84%, 50%);
+  color: var(--accent);
   font-weight: 700;
 }
 
 .spinning {
   animation: spin 1s linear infinite;
-  color: hsl(270, 15%, 40%);
+  color: var(--text-muted);
 }
 
 @keyframes spin {
@@ -489,13 +513,13 @@
 .countdown-number {
   font-size: 3rem;
   font-weight: 900;
-  color: hsl(38, 92%, 60%);
+  color: var(--warning);
   animation: pulse 0.5s ease-in-out;
 }
 
 .countdown-label {
   font-size: 0.85rem;
-  color: hsl(270, 15%, 50%);
+  color: var(--text-muted);
 }
 
 .matchmaking-actions {
@@ -505,7 +529,7 @@
 }
 
 .start-early-btn {
-  background: linear-gradient(135deg, hsl(160, 84%, 39%), hsl(160, 84%, 30%));
+  background: linear-gradient(135deg, var(--accent), hsl(160, 84%, 30%));
   color: white;
   border: none;
   padding: 0.75rem;
@@ -518,7 +542,7 @@
 .leave-btn {
   background: transparent;
   border: 1px solid hsla(0, 84%, 50%, 0.3);
-  color: hsl(0, 84%, 60%);
+  color: var(--danger);
   padding: 0.5rem;
   border-radius: 10px;
   cursor: pointer;
@@ -547,8 +571,8 @@
 }
 
 .hud-item {
-  background: hsla(270, 35%, 16%, 0.9);
-  border: 1px solid hsla(270, 20%, 22%, 0.6);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.5rem 1rem;
   display: flex;
@@ -558,10 +582,10 @@
   font-size: 1rem;
 }
 
-.hud-item.score { color: hsl(160, 84%, 50%); }
-.hud-item.timer { color: hsl(38, 92%, 60%); }
-.hud-item.combo { color: hsl(265, 89%, 68%); }
-.hud-item .urgent { color: hsl(0, 84%, 60%); animation: pulse 0.5s infinite; }
+.hud-item.score { color: var(--accent); }
+.hud-item.timer { color: var(--warning); }
+.hud-item.combo { color: var(--primary); }
+.hud-item .urgent { color: var(--danger); animation: pulse 0.5s infinite; }
 
 .opponents-bar {
   display: flex;
@@ -571,8 +595,8 @@
 }
 
 .opponent-score {
-  background: hsla(270, 35%, 16%, 0.7);
-  border: 1px solid hsla(270, 20%, 22%, 0.4);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.35rem 0.6rem;
   font-size: 0.75rem;
@@ -581,12 +605,12 @@
 }
 
 .opp-name {
-  color: hsl(270, 15%, 50%);
+  color: var(--text-muted);
   font-family: monospace;
 }
 
 .opp-score {
-  color: hsl(38, 92%, 60%);
+  color: var(--warning);
   font-weight: 700;
 }
 
@@ -595,11 +619,11 @@
   max-width: 340px;
   aspect-ratio: 320 / 384;
   position: relative;
-  background: linear-gradient(145deg, hsla(270, 50%, 15%, 0.9), hsla(270, 40%, 10%, 0.9));
-  border: 2px solid hsla(265, 60%, 40%, 0.4);
+  background: var(--game-area-bg);
+  border: 2px solid var(--border-glow);
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 8px 40px hsla(265, 89%, 30%, 0.3), inset 0 1px 0 hsla(0, 0%, 100%, 0.05);
+  box-shadow: var(--shadow), inset 0 1px 0 hsla(0, 0%, 100%, 0.05);
   touch-action: manipulation;
 }
 
@@ -627,7 +651,7 @@
 }
 
 .target-bonus {
-  box-shadow: 0 0 20px hsl(160, 84%, 50%), 0 0 40px hsla(160, 84%, 50%, 0.3);
+  box-shadow: 0 0 20px var(--accent), 0 0 40px hsla(160, 84%, 50%, 0.3);
 }
 
 .hit-effect {
@@ -657,10 +681,10 @@
   letter-spacing: 0.1em;
 }
 
-.effect-perfect .hit-score { color: hsl(38, 92%, 60%); }
-.effect-good .hit-score { color: hsl(160, 84%, 50%); }
-.effect-ok .hit-score { color: hsl(270, 20%, 70%); }
-.effect-trap .hit-score { color: hsl(0, 84%, 60%); }
+.effect-perfect .hit-score { color: var(--warning); }
+.effect-good .hit-score { color: var(--accent); }
+.effect-ok .hit-score { color: var(--text-secondary); }
+.effect-trap .hit-score { color: var(--danger); }
 
 .game-countdown-overlay, .game-over-overlay {
   position: absolute;
@@ -669,7 +693,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: hsla(270, 50%, 8%, 0.85);
+  background: var(--overlay-bg);
   backdrop-filter: blur(6px);
   z-index: 20;
 }
@@ -677,7 +701,7 @@
 .big-text {
   font-size: 2rem;
   font-weight: 900;
-  background: linear-gradient(135deg, hsl(265, 89%, 68%), hsl(160, 84%, 50%));
+  background: linear-gradient(135deg, var(--primary), var(--accent));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -687,12 +711,12 @@
 .final-score {
   font-size: 2.5rem;
   font-weight: 900;
-  color: hsl(38, 92%, 60%);
+  color: var(--warning);
   margin-top: 0.5rem;
 }
 
 .sub-text {
-  color: hsl(270, 15%, 50%);
+  color: var(--text-muted);
   margin-top: 0.25rem;
 }
 
@@ -700,7 +724,7 @@
   display: flex;
   gap: 1rem;
   font-size: 0.75rem;
-  color: hsl(270, 15%, 50%);
+  color: var(--text-muted);
 }
 
 /* ===== Results ===== */
@@ -713,8 +737,8 @@
 }
 
 .results-card {
-  background: hsla(270, 35%, 16%, 0.9);
-  border: 1px solid hsla(265, 60%, 40%, 0.3);
+  background: var(--bg-card);
+  border: 1px solid var(--border-glow);
   border-radius: 20px;
   padding: 2rem;
   max-width: 500px;
@@ -726,7 +750,7 @@
   padding: 1.5rem;
   border-radius: 16px;
   margin-bottom: 1.5rem;
-  background: hsla(270, 35%, 20%, 0.5);
+  background: var(--bg-secondary);
 }
 
 .winner-banner.you-won {
@@ -740,28 +764,28 @@
 }
 
 .you-won h1 {
-  background: linear-gradient(135deg, hsl(38, 92%, 60%), hsl(160, 84%, 50%));
+  background: linear-gradient(135deg, var(--warning), var(--accent));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .trophy-icon {
-  color: hsl(38, 92%, 60%);
+  color: var(--warning);
   margin-bottom: 0.5rem;
 }
 
 .prize-won {
   font-size: 1.5rem;
   font-weight: 800;
-  color: hsl(38, 92%, 60%);
+  color: var(--warning);
   margin-top: 0.5rem;
 }
 
 .your-stats h3, .results-leaderboard h3 {
   font-size: 0.9rem;
   margin-bottom: 0.75rem;
-  color: hsl(270, 20%, 70%);
+  color: var(--text-secondary);
 }
 
 .stats-grid {
@@ -772,7 +796,7 @@
 }
 
 .stat-card {
-  background: hsla(270, 35%, 20%, 0.5);
+  background: var(--bg-input);
   border-radius: 10px;
   padding: 0.75rem;
   text-align: center;
@@ -782,9 +806,9 @@
   gap: 0.25rem;
 }
 
-.stat-card svg { color: hsl(265, 89%, 68%); }
+.stat-card svg { color: var(--primary); }
 .stat-val { font-size: 1.25rem; font-weight: 800; }
-.stat-lbl { font-size: 0.7rem; color: hsl(270, 15%, 50%); }
+.stat-lbl { font-size: 0.7rem; color: var(--text-muted); }
 
 .rank-row {
   display: flex;
@@ -793,7 +817,7 @@
   padding: 0.5rem 0.75rem;
   border-radius: 8px;
   margin-bottom: 0.25rem;
-  background: hsla(270, 35%, 20%, 0.3);
+  background: var(--bg-input);
   font-size: 0.85rem;
 }
 
@@ -803,17 +827,17 @@
 }
 
 .rank-pos { min-width: 28px; }
-.rank-wallet { flex: 1; font-family: monospace; color: hsl(270, 20%, 70%); }
-.rank-score { font-weight: 700; color: hsl(160, 84%, 50%); }
-.rank-reaction { font-size: 0.75rem; color: hsl(270, 15%, 50%); }
+.rank-wallet { flex: 1; font-family: monospace; color: var(--text-secondary); }
+.rank-score { font-weight: 700; color: var(--accent); }
+.rank-reaction { font-size: 0.75rem; color: var(--text-muted); }
 
 .back-btn {
   width: 100%;
   margin-top: 1.5rem;
   padding: 0.75rem;
-  border: 1px solid hsla(265, 60%, 40%, 0.3);
+  border: 1px solid var(--border-glow);
   background: transparent;
-  color: hsl(265, 89%, 68%);
+  color: var(--primary);
   border-radius: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -843,7 +867,7 @@
 }
 
 .leaderboard-header svg {
-  color: hsl(38, 92%, 60%);
+  color: var(--warning);
 }
 
 .leaderboard-header h2 {
@@ -856,10 +880,10 @@
   grid-template-columns: 50px 1fr 60px 60px 80px;
   padding: 0.5rem 0.75rem;
   font-size: 0.7rem;
-  color: hsl(270, 15%, 40%);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-bottom: 1px solid hsla(270, 20%, 22%, 0.4);
+  border-bottom: 1px solid var(--border);
 }
 
 .lb-row {
@@ -867,7 +891,7 @@
   grid-template-columns: 50px 1fr 60px 60px 80px;
   padding: 0.6rem 0.75rem;
   font-size: 0.85rem;
-  border-bottom: 1px solid hsla(270, 20%, 22%, 0.2);
+  border-bottom: 1px solid var(--border);
   align-items: center;
 }
 
@@ -875,14 +899,14 @@
   background: hsla(38, 92%, 50%, 0.05);
 }
 
-.lb-wallet { font-family: monospace; color: hsl(270, 20%, 70%); }
-.lb-wins { font-weight: 700; color: hsl(160, 84%, 50%); }
-.lb-score { font-weight: 700; color: hsl(38, 92%, 60%); }
+.lb-wallet { font-family: monospace; color: var(--text-secondary); }
+.lb-wins { font-weight: 700; color: var(--accent); }
+.lb-score { font-weight: 700; color: var(--warning); }
 
 .no-data {
   text-align: center;
   padding: 3rem 1rem;
-  color: hsl(270, 15%, 40%);
+  color: var(--text-muted);
 }
 
 /* ===== Pool Tier Selection ===== */
@@ -894,8 +918,8 @@
 }
 
 .tier-btn {
-  background: hsla(270, 35%, 20%, 0.8);
-  border: 2px solid hsla(270, 20%, 30%, 0.5);
+  background: var(--bg-input);
+  border: 2px solid var(--border);
   border-radius: 12px;
   padding: 0.75rem 0.5rem;
   cursor: pointer;
@@ -904,24 +928,24 @@
   align-items: center;
   gap: 0.2rem;
   transition: all 0.2s;
-  color: hsl(270, 20%, 70%);
+  color: var(--text-secondary);
 }
 
 .tier-btn:hover {
-  border-color: var(--tier-color, hsl(265, 89%, 58%));
-  background: hsla(270, 35%, 22%, 0.9);
+  border-color: var(--primary);
+  background: var(--bg-card-hover);
 }
 
 .tier-btn.active {
-  border-color: var(--tier-color, hsl(265, 89%, 58%));
-  background: hsla(270, 35%, 22%, 0.9);
-  box-shadow: 0 0 15px color-mix(in srgb, var(--tier-color) 30%, transparent);
+  border-color: var(--primary);
+  background: var(--bg-card-hover);
+  box-shadow: 0 0 15px color-mix(in srgb, var(--primary) 30%, transparent);
 }
 
 .tier-icon { font-size: 1.5rem; }
-.tier-name { font-size: 0.85rem; font-weight: 700; color: hsl(0, 0%, 95%); }
-.tier-price { font-size: 0.75rem; font-weight: 600; color: hsl(38, 92%, 60%); }
-.tier-sol { font-size: 0.65rem; color: hsl(270, 15%, 50%); }
+.tier-name { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); }
+.tier-price { font-size: 0.75rem; font-weight: 600; color: var(--warning); }
+.tier-sol { font-size: 0.65rem; color: var(--text-muted); }
 
 /* SOL balance badge */
 .sol-balance-badge {
@@ -935,13 +959,13 @@
   border-radius: 20px;
   font-size: 0.8rem;
   font-weight: 700;
-  color: hsl(160, 84%, 50%);
+  color: var(--accent);
 }
 
 .lobby-error {
   background: hsla(0, 84%, 50%, 0.15);
   border: 1px solid hsla(0, 84%, 50%, 0.3);
-  color: hsl(0, 84%, 65%);
+  color: var(--danger);
   padding: 0.75rem 1rem;
   border-radius: 10px;
   font-size: 0.85rem;
@@ -953,17 +977,17 @@
   font-size: 0.75rem;
   font-weight: 700;
   margin-bottom: 0.25rem;
-  color: var(--tier-color, hsl(265, 89%, 68%));
+  color: var(--primary);
 }
 
 .match-remaining {
-  color: hsl(38, 92%, 60%);
+  color: var(--warning);
   font-weight: 600;
 }
 
 .match-progress-bar {
   height: 4px;
-  background: hsla(270, 20%, 25%, 0.5);
+  background: var(--border);
   border-radius: 2px;
   margin-top: 0.5rem;
   overflow: hidden;
@@ -971,7 +995,7 @@
 
 .match-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, hsl(160, 84%, 39%), hsl(160, 84%, 50%));
+  background: linear-gradient(90deg, var(--accent), var(--accent-glow));
   border-radius: 2px;
   transition: width 0.3s;
 }
@@ -991,13 +1015,13 @@
   font-size: 0.85rem;
 }
 
-.slots-joined { color: hsl(160, 84%, 50%); font-weight: 700; }
-.slots-remaining { color: hsl(38, 92%, 60%); font-weight: 700; }
+.slots-joined { color: var(--accent); font-weight: 700; }
+.slots-remaining { color: var(--warning); font-weight: 700; }
 
 /* Claim hint */
 .claim-hint {
   font-size: 0.85rem;
-  color: hsl(160, 84%, 50%);
+  color: var(--accent);
   margin-top: 0.5rem;
 }
 
@@ -1015,7 +1039,7 @@
   margin-bottom: 1.5rem;
 }
 
-.dashboard-header svg { color: hsl(38, 92%, 60%); }
+.dashboard-header svg { color: var(--warning); }
 .dashboard-header h2 { font-size: 1.25rem; font-weight: 800; }
 
 .dashboard-summary {
@@ -1026,8 +1050,8 @@
 }
 
 .summary-card {
-  background: hsla(270, 35%, 16%, 0.8);
-  border: 1px solid hsla(270, 20%, 22%, 0.6);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 1.25rem;
   text-align: center;
@@ -1037,9 +1061,9 @@
   gap: 0.35rem;
 }
 
-.summary-card svg { color: hsl(38, 92%, 60%); }
-.summary-val { font-size: 1.5rem; font-weight: 900; color: hsl(160, 84%, 50%); }
-.summary-lbl { font-size: 0.75rem; color: hsl(270, 15%, 50%); }
+.summary-card svg { color: var(--warning); }
+.summary-val { font-size: 1.5rem; font-weight: 900; color: var(--accent); }
+.summary-lbl { font-size: 0.75rem; color: var(--text-muted); }
 
 .claim-list {
   display: flex;
@@ -1048,8 +1072,8 @@
 }
 
 .claim-card {
-  background: hsla(270, 35%, 16%, 0.8);
-  border: 1px solid hsla(270, 20%, 22%, 0.6);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 1rem;
   display: flex;
@@ -1072,14 +1096,14 @@
   display: flex;
   gap: 0.75rem;
   font-size: 0.75rem;
-  color: hsl(270, 15%, 50%);
+  color: var(--text-muted);
   margin-bottom: 0.25rem;
 }
 
 .claim-payout {
   font-weight: 800;
   font-size: 1rem;
-  color: hsl(38, 92%, 60%);
+  color: var(--warning);
 }
 
 .claim-date {
@@ -1087,12 +1111,12 @@
   align-items: center;
   gap: 0.25rem;
   font-size: 0.7rem;
-  color: hsl(270, 15%, 40%);
+  color: var(--text-muted);
   margin-top: 0.25rem;
 }
 
 .claim-btn {
-  background: linear-gradient(135deg, hsl(38, 92%, 50%), hsl(38, 92%, 40%));
+  background: linear-gradient(135deg, var(--warning), hsl(38, 85%, 40%));
   color: white;
   border: none;
   padding: 0.6rem 1.5rem;
@@ -1143,15 +1167,180 @@
   }
 }
 
+/* Dark Mode Toggle Button */
 .dark-toggle-btn {
-  background: hsla(270, 35%, 20%, 0.6);
-  border: 1px solid hsla(270, 20%, 30%, 0.4);
-  color: hsl(270, 20%, 70%);
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.dark-toggle-btn:hover {
+  color: var(--warning);
+  border-color: var(--border-glow);
+}
+
+/* ═══ Smart Contract UI Additions ═══ */
+
+/* Escrow notice in Lobby */
+.escrow-notice {
+  background: hsla(160, 84%, 39%, 0.08);
+  border: 1px solid hsla(160, 84%, 39%, 0.2);
+  color: var(--accent-glow);
+  border-radius: 8px;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: 0.85rem;
+  text-align: center;
+}
+
+/* On-chain badge on match cards */
+.onchain-badge {
+  font-size: 0.62rem;
+  background: hsla(160, 84%, 39%, 0.12);
+  color: var(--accent-glow);
+  border: 1px solid hsla(160, 84%, 39%, 0.25);
+  border-radius: 4px;
+  padding: 0.08rem 0.35rem;
+  margin-left: 0.4rem;
+  font-weight: 700;
+}
+
+/* TX status bar */
+.tx-status {
+  background: hsla(265, 89%, 58%, 0.08);
+  border: 1px solid hsla(265, 89%, 58%, 0.2);
+  color: var(--primary-glow);
+  border-radius: 10px;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.82rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+/* ═══ Dashboard Additions ═══ */
+.wallet-summary-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.wallet-address { display: flex; flex-direction: column; gap: 0.15rem; }
+.waddr-label    { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.waddr-value    { font-family: monospace; font-size: 0.88rem; color: var(--text-secondary); }
+
+.sol-balance-large {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: var(--warning);
+}
+
+.sol-label { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
+
+.summary-card.highlight {
+  border-color: hsla(38, 92%, 50%, 0.3);
+  background: hsla(38, 92%, 50%, 0.05);
+}
+
+.claim-section-title {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 0.65rem;
+}
+
+.claim-match-id {
+  font-family: monospace;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.explorer-link {
+  color: var(--primary-glow);
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  display: inline-flex;
+}
+.explorer-link:hover { opacity: 1; }
+
+.claim-tx-status {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--accent-glow);
+  font-weight: 600;
+}
+
+.escrow-explainer {
+  margin-top: 1.5rem;
+  padding: 0.65rem 0.85rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  line-height: 1.5;
+}
+
+/* ─── Dark Mode Grid Background ─── */
+[data-theme="dark"] body {
+  background: hsl(0, 0%, 4%);
+  background-image:
+    linear-gradient(hsla(265, 89%, 58%, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, hsla(265, 89%, 58%, 0.07) 1px, transparent 1px),
+    linear-gradient(hsla(265, 89%, 58%, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, hsla(265, 89%, 58%, 0.03) 1px, transparent 1px);
+  background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+  background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
+}
+
+[data-theme="dark"] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 15% 15%, hsla(265, 89%, 58%, 0.08) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 85%, hsla(160, 84%, 39%, 0.06) 0%, transparent 55%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-theme="dark"] .app-container {
+  background: transparent;
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme="light"] body {
+  background: hsl(250, 30%, 97%);
+  background-image: none;
+}
+
+[data-theme="light"] .app-container {
+  background: transparent;
 }

@@ -21,14 +21,20 @@ function GameApp() {
   const [matchPlayers, setMatchPlayers] = useState([]);
   const [gameResults, setGameResults] = useState(null);
   const [prizePool, setPrizePool] = useState(0);
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('hh-theme');
+    return saved !== null ? saved === 'dark' : true;
+  });
 
+  // Apply theme on first load
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+  }, []);
+
+  // Apply theme whenever it changes
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+    localStorage.setItem('hh-theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
   const handleJoinMatch = (match) => {
@@ -70,13 +76,37 @@ function GameApp() {
 
   const renderView = () => {
     switch (activeView) {
-      case 'lobby': return <Lobby onJoinMatch={handleJoinMatch} />;
-      case 'matchmaking': return <Matchmaking match={currentMatch} onGameStart={handleGameStart} onLeave={handleLeaveMatch} />;
-      case 'game': return <GamePlay match={currentMatch} players={matchPlayers} onGameEnd={handleGameEnd} />;
-      case 'results': return <GameResults results={gameResults} onBackToLobby={handleBackToLobby} />;
-      case 'leaderboard': return <Leaderboard />;
-      case 'dashboard': return <Dashboard />;
-      default: return <Lobby onJoinMatch={handleJoinMatch} />;
+      case 'lobby':
+        return <Lobby onJoinMatch={handleJoinMatch} />;
+      case 'matchmaking':
+        return (
+          <Matchmaking
+            match={currentMatch}
+            onGameStart={handleGameStart}
+            onLeave={handleLeaveMatch}
+          />
+        );
+      case 'game':
+        return (
+          <GamePlay
+            match={currentMatch}
+            players={matchPlayers}
+            onGameEnd={handleGameEnd}
+          />
+        );
+      case 'results':
+        return (
+          <GameResults
+            results={gameResults}
+            onBackToLobby={handleBackToLobby}
+          />
+        );
+      case 'leaderboard':
+        return <Leaderboard />;
+      case 'dashboard':
+        return <Dashboard />;
+      default:
+        return <Lobby onJoinMatch={handleJoinMatch} />;
     }
   };
 
@@ -87,7 +117,7 @@ function GameApp() {
         setActiveView={setActiveView}
         prizePool={prizePool}
         isDarkMode={isDarkMode}
-        toggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+        toggleDarkMode={() => setIsDarkMode(prev => !prev)}
       />
       <main className="app-main">{renderView()}</main>
     </div>
