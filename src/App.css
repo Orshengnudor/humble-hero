@@ -2,26 +2,49 @@
 
 :root,
 [data-theme="dark"] {
-  --bg-primary:    hsl(0, 0%, 4%);
-  --bg-secondary:  hsl(0, 0%, 7%);
-  --bg-card:       hsl(0, 0%, 10%);
-  --bg-card-hover: hsl(0, 0%, 13%);
-  --bg-input:      hsl(0, 0%, 11%);
+  --bg-primary:    hsl(240, 12%, 5%);
+  --bg-secondary:  hsl(240, 10%, 8%);
+  --bg-card:       hsl(240, 10%, 11%);
+  --bg-card-hover: hsl(240, 10%, 14%);
+  --bg-input:      hsl(240, 10%, 12%);
   --text-primary:  hsl(0, 0%, 97%);
-  --text-secondary: hsl(270, 10%, 70%);
-  --text-muted:    hsl(270, 8%, 50%);
+  --text-secondary: hsl(260, 15%, 72%);
+  --text-muted:    hsl(260, 10%, 50%);
   --accent:        hsl(160, 84%, 39%);
   --accent-glow:   hsl(160, 84%, 50%);
   --primary:       hsl(265, 89%, 60%);
   --primary-glow:  hsl(265, 89%, 70%);
   --warning:       hsl(38,  92%, 52%);
   --danger:        hsl(0,   84%, 55%);
-  --border:        hsl(0, 0%, 15%);
+  --border:        hsl(240, 10%, 16%);
   --border-glow:   hsl(265, 60%, 38%);
-  --shadow:        0 8px 40px hsla(0, 0%, 0%, 0.6);
-  --header-bg:     hsla(0, 0%, 4%, 0.92);
-  --overlay-bg:    hsla(0, 0%, 3%, 0.9);
-  --game-area-bg:  linear-gradient(145deg, hsl(0, 0%, 8%), hsl(0, 0%, 4%));
+  --shadow:        0 8px 40px hsla(240, 30%, 4%, 0.7);
+  --header-bg:     hsla(240, 12%, 5%, 0.92);
+  --overlay-bg:    hsla(240, 12%, 4%, 0.9);
+  --game-area-bg:  linear-gradient(145deg, hsl(240, 10%, 9%), hsl(240, 12%, 5%));
+}
+
+[data-theme="light"] {
+  --bg-primary:    hsl(230, 25%, 96%);
+  --bg-secondary:  hsl(230, 25%, 93%);
+  --bg-card:       hsl(0, 0%, 100%);
+  --bg-card-hover: hsl(230, 30%, 97%);
+  --bg-input:      hsl(230, 25%, 94%);
+  --text-primary:  hsl(230, 30%, 15%);
+  --text-secondary: hsl(230, 15%, 42%);
+  --text-muted:    hsl(230, 12%, 58%);
+  --accent:        hsl(160, 75%, 34%);
+  --accent-glow:   hsl(160, 80%, 38%);
+  --primary:       hsl(265, 78%, 52%);
+  --primary-glow:  hsl(265, 78%, 58%);
+  --warning:       hsl(38,  85%, 48%);
+  --danger:        hsl(0,   75%, 50%);
+  --border:        hsl(230, 20%, 88%);
+  --border-glow:   hsl(265, 50%, 78%);
+  --shadow:        0 4px 24px hsla(230, 30%, 50%, 0.1);
+  --header-bg:     hsla(0, 0%, 100%, 0.88);
+  --overlay-bg:    hsla(230, 25%, 96%, 0.92);
+  --game-area-bg:  linear-gradient(145deg, hsl(230, 25%, 96%), hsl(0, 0%, 100%));
 }
 
 /* Layout */
