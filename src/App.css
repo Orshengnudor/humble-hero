@@ -25,26 +25,26 @@
 }
 
 [data-theme="light"] {
-  --bg-primary:    hsl(230, 25%, 96%);
-  --bg-secondary:  hsl(230, 25%, 93%);
-  --bg-card:       hsl(0, 0%, 100%);
-  --bg-card-hover: hsl(230, 30%, 97%);
-  --bg-input:      hsl(230, 25%, 94%);
-  --text-primary:  hsl(230, 30%, 15%);
-  --text-secondary: hsl(230, 15%, 42%);
-  --text-muted:    hsl(230, 12%, 58%);
+  --bg-primary:    hsl(220, 20%, 90%);
+  --bg-secondary:  hsl(220, 18%, 86%);
+  --bg-card:       hsl(220, 16%, 94%);
+  --bg-card-hover: hsl(220, 18%, 91%);
+  --bg-input:      hsl(220, 16%, 88%);
+  --text-primary:  hsl(220, 30%, 14%);
+  --text-secondary: hsl(220, 15%, 38%);
+  --text-muted:    hsl(220, 10%, 52%);
   --accent:        hsl(160, 75%, 34%);
   --accent-glow:   hsl(160, 80%, 38%);
   --primary:       hsl(265, 78%, 52%);
   --primary-glow:  hsl(265, 78%, 58%);
   --warning:       hsl(38,  85%, 48%);
   --danger:        hsl(0,   75%, 50%);
-  --border:        hsl(230, 20%, 88%);
+  --border:        hsl(220, 16%, 82%);
   --border-glow:   hsl(265, 50%, 78%);
-  --shadow:        0 4px 24px hsla(230, 30%, 50%, 0.1);
-  --header-bg:     hsla(0, 0%, 100%, 0.88);
-  --overlay-bg:    hsla(230, 25%, 96%, 0.92);
-  --game-area-bg:  linear-gradient(145deg, hsl(230, 25%, 96%), hsl(0, 0%, 100%));
+  --shadow:        0 4px 24px hsla(220, 30%, 40%, 0.12);
+  --header-bg:     hsla(220, 18%, 91%, 0.92);
+  --overlay-bg:    hsla(220, 20%, 90%, 0.94);
+  --game-area-bg:  linear-gradient(145deg, hsl(220, 18%, 88%), hsl(220, 20%, 92%));
 }
 
 /* Layout */
