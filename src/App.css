@@ -1,50 +1,52 @@
 /* ===== Humble Hero - App Styles ===== */
 
+/* Dark Theme (default) - Black/Dark Gray */
 :root,
 [data-theme="dark"] {
-  --bg-primary:    hsl(240, 12%, 5%);
-  --bg-secondary:  hsl(240, 10%, 8%);
-  --bg-card:       hsl(240, 10%, 11%);
-  --bg-card-hover: hsl(240, 10%, 14%);
-  --bg-input:      hsl(240, 10%, 12%);
+  --bg-primary:    hsl(0, 0%, 4%);
+  --bg-secondary:  hsl(0, 0%, 7%);
+  --bg-card:       hsl(0, 0%, 10%);
+  --bg-card-hover: hsl(0, 0%, 13%);
+  --bg-input:      hsl(0, 0%, 11%);
   --text-primary:  hsl(0, 0%, 97%);
-  --text-secondary: hsl(260, 15%, 72%);
-  --text-muted:    hsl(260, 10%, 50%);
+  --text-secondary: hsl(270, 10%, 70%);
+  --text-muted:    hsl(270, 8%, 50%);
   --accent:        hsl(160, 84%, 39%);
   --accent-glow:   hsl(160, 84%, 50%);
   --primary:       hsl(265, 89%, 60%);
   --primary-glow:  hsl(265, 89%, 70%);
-  --warning:       hsl(38,  92%, 52%);
-  --danger:        hsl(0,   84%, 55%);
-  --border:        hsl(240, 10%, 16%);
+  --warning:       hsl(38, 92%, 52%);
+  --danger:        hsl(0, 84%, 55%);
+  --border:        hsl(0, 0%, 15%);
   --border-glow:   hsl(265, 60%, 38%);
-  --shadow:        0 8px 40px hsla(240, 30%, 4%, 0.7);
-  --header-bg:     hsla(240, 12%, 5%, 0.92);
-  --overlay-bg:    hsla(240, 12%, 4%, 0.9);
-  --game-area-bg:  linear-gradient(145deg, hsl(240, 10%, 9%), hsl(240, 12%, 5%));
+  --shadow:        0 8px 40px hsla(0, 0%, 0%, 0.6);
+  --header-bg:     hsla(0, 0%, 0%, 0.92);
+  --overlay-bg:    hsla(0, 0%, 3%, 0.9);
+  --game-area-bg:  linear-gradient(145deg, hsl(0, 0%, 8%), hsl(0, 0%, 4%));
 }
 
+/* Light Theme - Warm Cream/Ivory (header stays dark) */
 [data-theme="light"] {
-  --bg-primary:    hsl(220, 20%, 90%);
-  --bg-secondary:  hsl(220, 18%, 86%);
-  --bg-card:       hsl(220, 16%, 94%);
-  --bg-card-hover: hsl(220, 18%, 91%);
-  --bg-input:      hsl(220, 16%, 88%);
-  --text-primary:  hsl(220, 30%, 14%);
-  --text-secondary: hsl(220, 15%, 38%);
-  --text-muted:    hsl(220, 10%, 52%);
-  --accent:        hsl(160, 75%, 34%);
-  --accent-glow:   hsl(160, 80%, 38%);
-  --primary:       hsl(265, 78%, 52%);
-  --primary-glow:  hsl(265, 78%, 58%);
-  --warning:       hsl(38,  85%, 48%);
-  --danger:        hsl(0,   75%, 50%);
-  --border:        hsl(220, 16%, 82%);
-  --border-glow:   hsl(265, 50%, 78%);
-  --shadow:        0 4px 24px hsla(220, 30%, 40%, 0.12);
-  --header-bg:     hsla(220, 18%, 91%, 0.92);
-  --overlay-bg:    hsla(220, 20%, 90%, 0.94);
-  --game-area-bg:  linear-gradient(145deg, hsl(220, 18%, 88%), hsl(220, 20%, 92%));
+  --bg-primary:    hsl(48, 25%, 92%);
+  --bg-secondary:  hsl(48, 20%, 88%);
+  --bg-card:       hsl(48, 25%, 94%);
+  --bg-card-hover: hsl(48, 25%, 90%);
+  --bg-input:      hsl(48, 20%, 90%);
+  --text-primary:  hsl(30, 20%, 15%);
+  --text-secondary: hsl(30, 15%, 35%);
+  --text-muted:    hsl(30, 12%, 45%);
+  --accent:        hsl(160, 70%, 35%);
+  --accent-glow:   hsl(160, 75%, 40%);
+  --primary:       hsl(265, 70%, 55%);
+  --primary-glow:  hsl(265, 75%, 60%);
+  --warning:       hsl(38, 85%, 48%);
+  --danger:        hsl(0, 75%, 50%);
+  --border:        hsl(40, 15%, 75%);
+  --border-glow:   hsl(265, 50%, 70%);
+  --shadow:        0 8px 40px hsla(30, 10%, 30%, 0.15);
+  --header-bg:     hsla(0, 0%, 0%, 0.92);
+  --overlay-bg:    hsla(48, 20%, 88%, 0.9);
+  --game-area-bg:  linear-gradient(145deg, hsl(48, 25%, 90%), hsl(48, 25%, 88%));
 }
 
 /* Layout */
@@ -116,7 +118,7 @@
 }
 
 .nav-btn:hover, .nav-btn.active {
-  background: hsla(265, 60%, 40%, 0.3);
+  background: hsla(265, 60%, 40%, 0.2);
   border-color: var(--primary);
   color: var(--text-primary);
 }
@@ -143,7 +145,7 @@
   font-size: 0.85rem !important;
   height: 40px !important;
   border-radius: 10px !important;
-  background: linear-gradient(135deg, var(--primary), hsl(265, 89%, 45%)) !important;
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, black)) !important;
 }
 
 /* ===== Hero / Connect Screen ===== */
@@ -294,9 +296,9 @@
 }
 
 .player-opt:hover, .player-opt.active {
-  background: hsla(265, 89%, 58%, 0.3);
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
   border-color: var(--primary);
-  color: white;
+  color: var(--text-primary);
 }
 
 .fee-display, .prize-preview {
@@ -310,7 +312,7 @@
   padding: 0.75rem;
   border: none;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--accent), hsl(160, 84%, 30%));
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 80%, black));
   color: white;
   font-weight: 700;
   font-size: 1rem;
@@ -320,7 +322,7 @@
 
 .create-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px hsla(160, 84%, 39%, 0.3);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .create-btn:disabled {
@@ -375,7 +377,7 @@
 }
 
 .join-btn {
-  background: linear-gradient(135deg, var(--primary), hsl(265, 89%, 45%));
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 80%, black));
   color: white;
   border: none;
   padding: 0.5rem 1.25rem;
@@ -392,7 +394,7 @@
 
 .join-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 15px hsla(265, 89%, 58%, 0.3);
+  box-shadow: 0 4px 15px color-mix(in srgb, var(--primary) 40%, transparent);
 }
 
 /* ===== Matchmaking ===== */
@@ -506,12 +508,12 @@
 }
 
 .host-badge {
-  background: hsla(38, 92%, 50%, 0.2);
+  background: color-mix(in srgb, var(--warning) 20%, transparent);
   color: var(--warning);
 }
 
 .you-badge {
-  background: hsla(160, 84%, 39%, 0.2);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--accent);
 }
 
@@ -552,7 +554,7 @@
 }
 
 .start-early-btn {
-  background: linear-gradient(135deg, var(--accent), hsl(160, 84%, 30%));
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 80%, black));
   color: white;
   border: none;
   padding: 0.75rem;
@@ -564,7 +566,7 @@
 
 .leave-btn {
   background: transparent;
-  border: 1px solid hsla(0, 84%, 50%, 0.3);
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
   color: var(--danger);
   padding: 0.5rem;
   border-radius: 10px;
@@ -574,7 +576,7 @@
 }
 
 .leave-btn:hover {
-  background: hsla(0, 84%, 50%, 0.1);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
 }
 
 /* ===== GamePlay ===== */
@@ -674,7 +676,7 @@
 }
 
 .target-bonus {
-  box-shadow: 0 0 20px var(--accent), 0 0 40px hsla(160, 84%, 50%, 0.3);
+  box-shadow: 0 0 20px var(--accent), 0 0 40px color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
 .hit-effect {
@@ -777,8 +779,8 @@
 }
 
 .winner-banner.you-won {
-  background: linear-gradient(135deg, hsla(38, 92%, 50%, 0.15), hsla(160, 84%, 39%, 0.15));
-  border: 1px solid hsla(38, 92%, 50%, 0.3);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--warning) 15%, transparent), color-mix(in srgb, var(--accent) 15%, transparent));
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
 }
 
 .winner-banner h1 {
@@ -845,8 +847,8 @@
 }
 
 .rank-row.is-winner {
-  background: hsla(38, 92%, 50%, 0.1);
-  border: 1px solid hsla(38, 92%, 50%, 0.2);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
 }
 
 .rank-pos { min-width: 28px; }
@@ -872,7 +874,7 @@
 }
 
 .back-btn:hover {
-  background: hsla(265, 89%, 58%, 0.1);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 /* ===== Leaderboard ===== */
@@ -919,7 +921,7 @@
 }
 
 .lb-row.top-3 {
-  background: hsla(38, 92%, 50%, 0.05);
+  background: color-mix(in srgb, var(--warning) 5%, transparent);
 }
 
 .lb-wallet { font-family: monospace; color: var(--text-secondary); }
@@ -977,8 +979,8 @@
   gap: 0.35rem;
   margin-top: 0.5rem;
   padding: 0.3rem 0.75rem;
-  background: hsla(160, 84%, 39%, 0.15);
-  border: 1px solid hsla(160, 84%, 39%, 0.3);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
   border-radius: 20px;
   font-size: 0.8rem;
   font-weight: 700;
@@ -986,8 +988,8 @@
 }
 
 .lobby-error {
-  background: hsla(0, 84%, 50%, 0.15);
-  border: 1px solid hsla(0, 84%, 50%, 0.3);
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
   color: var(--danger);
   padding: 0.75rem 1rem;
   border-radius: 10px;
@@ -1106,7 +1108,7 @@
 }
 
 .claim-card:hover {
-  border-color: hsla(38, 92%, 50%, 0.4);
+  border-color: color-mix(in srgb, var(--warning) 50%, transparent);
 }
 
 .claim-tier {
@@ -1139,7 +1141,7 @@
 }
 
 .claim-btn {
-  background: linear-gradient(135deg, var(--warning), hsl(38, 85%, 40%));
+  background: linear-gradient(135deg, var(--warning), color-mix(in srgb, var(--warning) 80%, black));
   color: white;
   border: none;
   padding: 0.6rem 1.5rem;
@@ -1153,7 +1155,7 @@
 
 .claim-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 15px hsla(38, 92%, 50%, 0.3);
+  box-shadow: 0 4px 15px color-mix(in srgb, var(--warning) 40%, transparent);
 }
 
 .claim-btn:disabled {
@@ -1215,8 +1217,8 @@
 
 /* Escrow notice in Lobby */
 .escrow-notice {
-  background: hsla(160, 84%, 39%, 0.08);
-  border: 1px solid hsla(160, 84%, 39%, 0.2);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   color: var(--accent-glow);
   border-radius: 8px;
   padding: 0.55rem 0.85rem;
@@ -1229,9 +1231,9 @@
 /* On-chain badge on match cards */
 .onchain-badge {
   font-size: 0.62rem;
-  background: hsla(160, 84%, 39%, 0.12);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent-glow);
-  border: 1px solid hsla(160, 84%, 39%, 0.25);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   border-radius: 4px;
   padding: 0.08rem 0.35rem;
   margin-left: 0.4rem;
@@ -1240,8 +1242,8 @@
 
 /* TX status bar */
 .tx-status {
-  background: hsla(265, 89%, 58%, 0.08);
-  border: 1px solid hsla(265, 89%, 58%, 0.2);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
   color: var(--primary-glow);
   border-radius: 10px;
   padding: 0.55rem 0.9rem;
@@ -1279,8 +1281,8 @@
 .sol-label { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
 
 .summary-card.highlight {
-  border-color: hsla(38, 92%, 50%, 0.3);
-  background: hsla(38, 92%, 50%, 0.05);
+  border-color: color-mix(in srgb, var(--warning) 40%, transparent);
+  background: color-mix(in srgb, var(--warning) 5%, transparent);
 }
 
 .claim-section-title {
@@ -1359,85 +1361,39 @@
   z-index: 1;
 }
 
+/* ─── Light Mode Warm Cream Background ─── */
 [data-theme="light"] body {
-  background: hsl(230, 25%, 96%);
+  background: hsl(48, 30%, 94%);
   background-image:
-    radial-gradient(ellipse at 20% 0%, hsla(265, 70%, 70%, 0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 100%, hsla(160, 70%, 50%, 0.05) 0%, transparent 50%);
+    radial-gradient(circle at 20% 30%, hsla(38, 50%, 70%, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, hsla(160, 30%, 60%, 0.1) 0%, transparent 50%);
+  background-attachment: fixed;
 }
 
 [data-theme="light"] .app-container {
   background: transparent;
+  position: relative;
+  z-index: 1;
 }
 
-/* Light mode card shadows */
-[data-theme="light"] .create-match-card,
-[data-theme="light"] .match-card,
-[data-theme="light"] .matchmaking-card,
-[data-theme="light"] .results-card,
-[data-theme="light"] .summary-card,
-[data-theme="light"] .claim-card,
-[data-theme="light"] .wallet-summary-card {
-  box-shadow: 0 1px 4px hsla(230, 30%, 50%, 0.08), 0 4px 16px hsla(230, 30%, 50%, 0.04);
-}
-
-[data-theme="light"] .feature-card {
-  box-shadow: 0 1px 3px hsla(230, 30%, 50%, 0.06);
-}
-
-[data-theme="light"] .game-header {
-  box-shadow: 0 1px 8px hsla(230, 30%, 50%, 0.08);
-}
-
-/* Light mode button adjustments */
-[data-theme="light"] .nav-btn:hover,
-[data-theme="light"] .nav-btn.active {
-  background: hsla(265, 60%, 55%, 0.12);
-}
-
-[data-theme="light"] .player-opt:hover,
-[data-theme="light"] .player-opt.active {
-  background: hsla(265, 78%, 52%, 0.15);
-  color: hsl(265, 78%, 42%);
-}
-
-[data-theme="light"] .tier-btn.active {
-  box-shadow: 0 0 12px hsla(265, 78%, 52%, 0.15);
-}
-
-[data-theme="light"] .game-play-area {
-  border-color: var(--border);
-  box-shadow: var(--shadow), inset 0 1px 0 hsla(0, 0%, 100%, 0.6);
-}
-
-[data-theme="light"] .escrow-notice {
-  background: hsla(160, 75%, 34%, 0.06);
-  border-color: hsla(160, 75%, 34%, 0.15);
-  color: hsl(160, 65%, 30%);
-}
-
-[data-theme="light"] .onchain-badge {
-  background: hsla(160, 75%, 34%, 0.08);
-  color: hsl(160, 65%, 30%);
-  border-color: hsla(160, 75%, 34%, 0.2);
-}
-
-[data-theme="light"] .tx-status {
-  background: hsla(265, 78%, 52%, 0.06);
-  border-color: hsla(265, 78%, 52%, 0.15);
-  color: hsl(265, 78%, 45%);
-}
-
-[data-theme="light"] .lobby-error {
-  background: hsla(0, 75%, 50%, 0.06);
-  border-color: hsla(0, 75%, 50%, 0.18);
-}
-
-[data-theme="light"] .sol-balance-badge {
-  background: hsla(160, 75%, 34%, 0.08);
-  border-color: hsla(160, 75%, 34%, 0.2);
-}
-
-[data-theme="light"] .no-matches {
-  background: hsl(230, 25%, 97%);
+/* Ensure all color-mix usage works across browsers */
+@supports not (color: color-mix(in srgb, red, blue)) {
+  .player-opt:hover, .player-opt.active {
+    background: rgba(139, 92, 246, 0.3);
+  }
+  .host-badge {
+    background: rgba(245, 158, 11, 0.2);
+  }
+  .you-badge {
+    background: rgba(16, 185, 129, 0.2);
+  }
+  .leave-btn {
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+  .winner-banner.you-won {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(16, 185, 129, 0.15));
+  }
+  .rank-row.is-winner {
+    background: rgba(245, 158, 11, 0.1);
+  }
 }
