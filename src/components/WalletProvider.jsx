@@ -1,25 +1,38 @@
-import { useMemo } from 'react';
-import { ConnectionProvider, WalletProvider as SolanaWalletProvider } from '@solana/wallet-adapter-react';
-import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
-import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
-import '@solana/wallet-adapter-react-ui/styles.css';
+import { WagmiProvider, createConfig, http } from 'wagmi';
+import { base } from 'wagmi/chains';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ConnectKitProvider, getDefaultConfig } from 'connectkit';
 
-const SOLANA_RPC = 'https://api.mainnet-beta.solana.com';
+const config = createConfig(
+  getDefaultConfig({
+    chains: [base],
+    transports: {
+      [base.id]: http(import.meta.env.VITE_BASE_RPC || 'https://mainnet.base.org'),
+    },
+    walletConnectProjectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '1ac6d1d1473a81fef1a18f15ccf1dc52',
+    appName: 'Humble Hero',
+    appDescription: 'Fast-paced multiplayer reaction game on Base',
+    appUrl: 'https://humblehero.xyz',
+    appIcon: 'https://humblehero.xyz/logo.png',
+  })
+);
+
+const queryClient = new QueryClient();
 
 export default function WalletProvider({ children }) {
-  const wallets = useMemo(() => [
-    new PhantomWalletAdapter(),
-    new SolflareWalletAdapter(),
-  ], []);
-
   return (
-    <ConnectionProvider endpoint={SOLANA_RPC}>
-      <SolanaWalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <ConnectKitProvider
+          theme="midnight"
+          options={{
+            hideBalance: false,
+            hideTooltips: false,
+          }}
+        >
           {children}
-        </WalletModalProvider>
-      </SolanaWalletProvider>
-    </ConnectionProvider>
+        </ConnectKitProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
   );
 }

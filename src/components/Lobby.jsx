@@ -1,34 +1,33 @@
 import { useState, useEffect } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useAccount, useWalletClient } from 'wagmi';
+import { ConnectKitButton } from 'connectkit';
 import { getOpenMatches, createMatch, joinMatch, subscribeToLobby } from '../lib/supabase';
 import {
   formatWallet,
-  ENTRY_TIERS,
-  PLAYER_OPTIONS,
-  getSolBalance,
-  validateSolBalance,
+  getEthBalance,
+  validateEntryBalance,
   createMatchOnChain,
   joinMatchOnChain,
+  ENTRY_TIERS,
+  getTierByKey,
+  PLAYER_OPTIONS,
 } from '../lib/blockchain';
-import { Users, Zap, Plus, ArrowRight, Trophy, Shield, Wallet, AlertCircle } from 'lucide-react';
-
-const TIER_ICONS = {
-  micro: '🪙', basic: '⚡', mid: '💎', high: '🔥', whale: '🐋',
-};
+import { Users, Zap, Plus, ArrowRight, Trophy, Shield, Wallet, AlertCircle, Star } from 'lucide-react';
 
 export default function Lobby({ onJoinMatch }) {
-  const { publicKey, connected, wallet } = useWallet();
-  const [matches, setMatches] = useState([]);
-  const [creating, setCreating] = useState(false);
-  const [joining, setJoining] = useState(null);
-  const [maxPlayers, setMaxPlayers] = useState(2);
-  const [selectedTier, setSelectedTier] = useState('basic');
-  const [solBalance, setSolBalance] = useState(null);
-  const [error, setError] = useState('');
-  const [txStatus, setTxStatus] = useState('');
+  const { address, isConnected } = useAccount();
+  const { data: walletClient }   = useWalletClient();
 
-  const tier = ENTRY_TIERS[selectedTier];
+  const [matches,      setMatches]      = useState([]);
+  const [creating,     setCreating]     = useState(false);
+  const [joining,      setJoining]      = useState(null);
+  const [maxPlayers,   setMaxPlayers]   = useState(2);
+  const [selectedTier, setSelectedTier] = useState('bronze');
+  const [ethBalance,   setEthBalance]   = useState(0);
+  const [error,        setError]        = useState('');
+  const [txStatus,     setTxStatus]     = useState('');
+
+  const currentTier = getTierByKey(selectedTier);
 
   const loadMatches = async () => {
     try {
@@ -42,86 +41,69 @@ export default function Lobby({ onJoinMatch }) {
   useEffect(() => {
     loadMatches();
     const channel = subscribeToLobby(() => loadMatches());
-    return () => { channel.unsubscribe(); };
+    return () => channel.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (publicKey) getSolBalance(publicKey).then(setSolBalance);
-  }, [publicKey]);
+    if (address) getEthBalance(address).then(setEthBalance);
+  }, [address]);
 
   const handleCreate = async () => {
-    if (!publicKey || !wallet) return;
+    if (!address || !walletClient) return;
     setError('');
     setTxStatus('');
     setCreating(true);
 
     try {
-      // 1. Validate balance
-      const validation = await validateSolBalance(publicKey, tier.sol);
+      const validation = await validateEntryBalance(address, selectedTier);
       if (!validation.hasEnough) {
-        setError(`Insufficient SOL. Need ${validation.required.toFixed(4)} SOL, have ${validation.balance.toFixed(4)} SOL.`);
+        setError(`Insufficient ETH. Need ~${validation.required} ETH (${currentTier.label}), you have ${validation.balance.toFixed(4)} ETH.`);
         setCreating(false);
         return;
       }
 
-      // 2. Create off-chain match record first (get UUID match_id)
       setTxStatus('Creating match record...');
-      const match = await createMatch(publicKey.toBase58(), tier.sol, maxPlayers, selectedTier);
+      const match = await createMatch(address, currentTier.eth, maxPlayers, selectedTier);
 
-      // 3. Create on-chain escrow and lock entry fee
-      setTxStatus('Approve wallet transaction...');
-      const result = await createMatchOnChain(
-        wallet.adapter,
-        match.id,       // UUID from Supabase
-        maxPlayers,
-        tier.sol,
-      );
+      setTxStatus('Approve ETH deposit in wallet...');
+      const result = await createMatchOnChain(walletClient, match.id, maxPlayers, selectedTier);
 
       if (!result.success) {
-        setError(result.error || 'On-chain transaction failed. Match cancelled.');
+        setError(result.error || 'Transaction failed.');
         setCreating(false);
         setTxStatus('');
         return;
       }
 
-      setTxStatus(`Transaction confirmed! ✅`);
-      setTimeout(() => setTxStatus(''), 3000);
-
-      // 4. Update Supabase with on-chain tx reference
-      await import('../lib/supabase').then(({ supabase }) =>
-        supabase.from('matches').update({
-          escrow_pda: result.escrowPDA,
-          create_tx: result.txId,
-        }).eq('id', match.id)
-      );
-
-      setSolBalance(prev => prev - tier.sol - 0.002);
+      setTxStatus('Match created! ✅');
+      setTimeout(() => setTxStatus(''), 2500);
+      getEthBalance(address).then(setEthBalance);
       onJoinMatch(match);
     } catch (err) {
-      console.error('Failed to create match:', err);
       setError(err.message);
     }
+
     setCreating(false);
     setTxStatus('');
   };
 
   const handleJoin = async (match) => {
-    if (!publicKey || !wallet) return;
+    if (!address || !walletClient) return;
     setError('');
     setJoining(match.id);
 
     try {
-      const validation = await validateSolBalance(publicKey, match.entry_fee);
+      const tierKey = match.tier || 'bronze';
+      const validation = await validateEntryBalance(address, tierKey);
       if (!validation.hasEnough) {
-        setError(`Need ${validation.required.toFixed(4)} SOL to join. You have ${validation.balance.toFixed(4)} SOL.`);
+        setError(`Need ${validation.required} ETH (${validation.tierLabel}) to join. You have ${validation.balance.toFixed(4)} ETH.`);
         setJoining(null);
         return;
       }
 
-      setTxStatus('Approve wallet transaction...');
+      setTxStatus('Approve ETH deposit in wallet...');
+      const result = await joinMatchOnChain(walletClient, match.id, tierKey);
 
-      // 1. On-chain join (locks SOL in escrow)
-      const result = await joinMatchOnChain(wallet.adapter, match.id);
       if (!result.success) {
         setError(result.error || 'Transaction failed.');
         setJoining(null);
@@ -129,39 +111,43 @@ export default function Lobby({ onJoinMatch }) {
         return;
       }
 
-      // 2. Off-chain record
-      await joinMatch(match.id, publicKey.toBase58());
+      await joinMatch(match.id, address);
 
       setTxStatus('Joined! ✅');
       setTimeout(() => setTxStatus(''), 2000);
-      setSolBalance(prev => prev - match.entry_fee - 0.002);
+      getEthBalance(address).then(setEthBalance);
       onJoinMatch(match);
     } catch (err) {
-      console.error('Failed to join match:', err);
       setError(err.message);
     }
+
     setJoining(null);
     setTxStatus('');
   };
 
-  if (!connected) {
+  if (!isConnected) {
     return (
       <div className="lobby-connect">
         <div className="hero-section">
           <div className="hero-icon">⚡</div>
           <h1>Humble Hero</h1>
-          <p className="hero-subtitle">Real-time multiplayer reaction game on Solana</p>
+          <p className="hero-subtitle">Real-time multiplayer reaction game on Base</p>
           <p className="hero-desc">
-            Compete against players worldwide. Entry fees are locked in a smart contract escrow —
-            winner claims the full prize pool automatically.
+            Compete for ETH prizes. Earn points every game.
+            Points convert to $HERO tokens in the future.
           </p>
           <div className="features-grid">
-            <div className="feature-card"><Zap size={22} /><span>Lightning Fast</span></div>
+            <div className="feature-card"><Zap size={22} /><span>Win ETH</span></div>
             <div className="feature-card"><Users size={22} /><span>2–10 Players</span></div>
-            <div className="feature-card"><Trophy size={22} /><span>Win SOL</span></div>
+            <div className="feature-card"><Star size={22} /><span>Earn Points</span></div>
             <div className="feature-card"><Shield size={22} /><span>Smart Contract</span></div>
           </div>
-          <WalletMultiButton className="wallet-btn-hero" />
+          <div className="points-notice">
+            🎯 Points earned now → $HERO airdrop in the future
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1.5rem' }}>
+            <ConnectKitButton />
+          </div>
         </div>
       </div>
     );
@@ -171,37 +157,33 @@ export default function Lobby({ onJoinMatch }) {
     <div className="lobby">
       <div className="lobby-header">
         <h2>Game Lobby</h2>
-        <p>Entry fees are locked in a Solana smart contract — winner takes all.</p>
-        {solBalance !== null && (
-          <div className="sol-balance-badge">
-            <Wallet size={13} /> {solBalance.toFixed(4)} SOL
-          </div>
-        )}
+        <p>Win ETH • Earn points • Future $HERO airdrop</p>
+        <div className="sol-balance-badge">
+          <Wallet size={13} /> {ethBalance.toFixed(4)} ETH
+        </div>
       </div>
 
-      {error && (
-        <div className="lobby-error">
-          <AlertCircle size={15} /> {error}
-        </div>
-      )}
+      {error   && <div className="lobby-error"><AlertCircle size={15} /> {error}</div>}
       {txStatus && <div className="tx-status">{txStatus}</div>}
 
       {/* Create Match */}
       <div className="create-match-card">
-        <h3><Plus size={17} /> Create Pool</h3>
+        <h3><Plus size={17} /> Create Match</h3>
 
         {/* Tier Selection */}
         <div className="option-group">
-          <label>Entry Fee (SOL)</label>
+          <label>Pool Tier — Entry Fee & Points</label>
           <div className="tier-select">
-            {Object.entries(ENTRY_TIERS).map(([key, t]) => (
+            {Object.entries(ENTRY_TIERS).map(([key, tier]) => (
               <button
                 key={key}
                 className={`tier-btn ${selectedTier === key ? 'active' : ''}`}
                 onClick={() => setSelectedTier(key)}
+                title={`${tier.points.toLocaleString()} points per game`}
               >
-                <span className="tier-icon">{TIER_ICONS[key]}</span>
-                <span className="tier-sol">{t.sol} SOL</span>
+                <span className="tier-icon">{tier.icon}</span>
+                <span className="tier-sol">{tier.label}</span>
+                <span className="tier-points">+{(tier.points / 1000).toFixed(0)}K pts</span>
               </button>
             ))}
           </div>
@@ -224,48 +206,61 @@ export default function Lobby({ onJoinMatch }) {
           </div>
           <div className="option-group">
             <label>Your Entry</label>
-            <div className="fee-display">{tier.sol} SOL</div>
+            <div className="fee-display">{currentTier.eth} ETH ({currentTier.label})</div>
           </div>
           <div className="option-group">
             <label>Prize Pool</label>
-            <div className="prize-preview">🏆 {(tier.sol * maxPlayers).toFixed(3)} SOL</div>
+            <div className="prize-preview">
+              🏆 ~{(parseFloat(currentTier.eth) * maxPlayers).toFixed(4)} ETH
+            </div>
+          </div>
+          <div className="option-group">
+            <label>Points per Game</label>
+            <div className="points-preview">
+              ⭐ {currentTier.points.toLocaleString()} pts (×2 if you win)
+            </div>
           </div>
         </div>
 
         <div className="escrow-notice">
-          🔒 Funds locked in smart contract until game ends
+          🔒 ETH locked in Base smart contract • 5% platform fee on prize
         </div>
 
-        <button className="create-btn" onClick={handleCreate} disabled={creating}>
-          {creating ? (txStatus || 'Creating...') : `Create Pool — ${tier.sol} SOL`}
+        <button
+          className="create-btn"
+          onClick={handleCreate}
+          disabled={creating}
+        >
+          {creating
+            ? (txStatus || 'Creating...')
+            : `Create Match — ${currentTier.eth} ETH (${currentTier.label})`}
         </button>
       </div>
 
       {/* Open Matches */}
       <div className="matches-section">
-        <h3>Open Pools ({matches.length})</h3>
+        <h3>Open Matches ({matches.length})</h3>
         {matches.length === 0 ? (
           <div className="no-matches">
-            <p>No open pools. Create one to start playing!</p>
+            <p>No open matches. Create one to start playing!</p>
           </div>
         ) : (
           <div className="matches-list">
             {matches.map(match => {
+              const tier      = getTierByKey(match.tier || 'bronze');
               const remaining = match.max_players - (match.current_players || 1);
-              const tierKey = match.tier || 'basic';
-              const tierInfo = ENTRY_TIERS[tierKey] || ENTRY_TIERS.basic;
               return (
                 <div key={match.id} className="match-card">
                   <div className="match-info">
                     <div className="match-host">
-                      Host: {formatWallet(match.host_wallet)}
-                      {match.escrow_pda && <span className="onchain-badge">🔒 On-chain</span>}
+                      <span className="tier-badge-sm">{tier.icon} {tier.label}</span>
+                      {' '}Host: {formatWallet(match.host_wallet)}
                     </div>
                     <div className="match-details">
-                      <span><Users size={13} /> {match.current_players}/{match.max_players}</span>
+                      <span><Users size={13} /> {match.current_players || 1}/{match.max_players}</span>
                       <span className="match-remaining">{remaining} spot{remaining !== 1 ? 's' : ''} left</span>
-                      <span>🏆 {(match.prize_pool || 0).toFixed(3)} SOL</span>
-                      <span>💰 {match.entry_fee} SOL</span>
+                      <span>🏆 ~{parseFloat(match.prize_pool || 0).toFixed(4)} ETH</span>
+                      <span>⭐ {tier.points.toLocaleString()} pts</span>
                     </div>
                     <div className="match-progress-bar">
                       <div
@@ -279,7 +274,9 @@ export default function Lobby({ onJoinMatch }) {
                     onClick={() => handleJoin(match)}
                     disabled={joining === match.id}
                   >
-                    {joining === match.id ? 'Joining...' : <><span>Join</span> <ArrowRight size={13} /></>}
+                    {joining === match.id
+                      ? 'Joining...'
+                      : <><span>Join</span> <ArrowRight size={13} /></>}
                   </button>
                 </div>
               );

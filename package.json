@@ -2,32 +2,29 @@
   "$schema": "https://json.schemastore.org/package.json",
   "name": "humble-hero",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "declare-winners": "node scripts/declareWinners.js"
   },
   "engines": {
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.32.1",
-    "@solana/wallet-adapter-base": "^0.9.27",
-    "@solana/wallet-adapter-phantom": "^0.9.28",
-    "@solana/wallet-adapter-react": "^0.15.39",
-    "@solana/wallet-adapter-react-ui": "^0.9.39",
-    "@solana/wallet-adapter-solflare": "^0.6.32",
-    "@solana/web3.js": "1",
     "@supabase/supabase-js": "^2.100.1",
-    "buffer": "^6.0.3",
+    "@tanstack/react-query": "^5.96.1",
+    "connectkit": "^1.9.2",
     "dotenv": "^17.3.1",
+    "ethers": "^6.13.0",
     "lucide-react": "^1.7.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "viem": "^2.47.6",
+    "wagmi": "^2.19.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
@@ -37,7 +34,6 @@
     "eslint": "^9.33.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
-    "vite": "^7.1.2",
-    "vite-plugin-node-polyfills": "^0.25.0"
+    "vite": "^7.1.2"
   }
 }

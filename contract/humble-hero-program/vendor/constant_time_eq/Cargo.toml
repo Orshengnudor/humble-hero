@@ -1,8 +1,0 @@
-[package]
-name = "constant_time_eq"
-version = "0.3.0"
-edition = "2021"
-license = "CC0-1.0"
-description = "Vendored constant_time_eq"
-
-[lib]

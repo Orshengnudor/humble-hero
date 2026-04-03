@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { Buffer } from 'buffer';
+import { useAccount } from 'wagmi';
 import WalletProvider from './components/WalletProvider';
 import Header from './components/Header';
 import Lobby from './components/Lobby';
@@ -10,28 +9,25 @@ import GameResults from './components/GameResults';
 import Leaderboard from './components/Leaderboard';
 import Dashboard from './components/Dashboard';
 import { updateLeaderboard } from './lib/supabase';
+import { getTierByKey } from './lib/blockchain';
 import './App.css';
 
-window.Buffer = Buffer;
-
 function GameApp() {
-  const { publicKey } = useWallet();
-  const [activeView, setActiveView] = useState('lobby');
-  const [currentMatch, setCurrentMatch] = useState(null);
-  const [matchPlayers, setMatchPlayers] = useState([]);
-  const [gameResults, setGameResults] = useState(null);
-  const [prizePool, setPrizePool] = useState(0);
-  const [isDarkMode, setIsDarkMode] = useState(() => {
+  const { address } = useAccount();
+  const [activeView,    setActiveView]    = useState('lobby');
+  const [currentMatch,  setCurrentMatch]  = useState(null);
+  const [matchPlayers,  setMatchPlayers]  = useState([]);
+  const [gameResults,   setGameResults]   = useState(null);
+  const [prizePool,     setPrizePool]     = useState(0);
+  const [isDarkMode,    setIsDarkMode]    = useState(() => {
     const saved = localStorage.getItem('hh-theme');
     return saved !== null ? saved === 'dark' : true;
   });
 
-  // Apply theme on first load
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
   }, []);
 
-  // Apply theme whenever it changes
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
     localStorage.setItem('hh-theme', isDarkMode ? 'dark' : 'light');
@@ -46,7 +42,7 @@ function GameApp() {
   const handleGameStart = (match, players) => {
     setCurrentMatch(match);
     setMatchPlayers(players);
-    setPrizePool(match.prize_pool || match.entry_fee * players.length);
+    setPrizePool(match.prize_pool || match.entry_fee);
     setActiveView('game');
   };
 
@@ -54,9 +50,11 @@ function GameApp() {
     setGameResults(results);
     setActiveView('results');
 
-    if (publicKey) {
-      const isWinner = results.winner === publicKey.toBase58();
-      await updateLeaderboard(publicKey.toBase58(), isWinner, results.score);
+    if (address) {
+      const isWinner   = results.winner === address;
+      const tier       = getTierByKey(currentMatch?.tier || 'bronze');
+      const tierPoints = tier.points;
+      await updateLeaderboard(address, isWinner, results.score, tierPoints);
     }
   };
 
@@ -79,28 +77,11 @@ function GameApp() {
       case 'lobby':
         return <Lobby onJoinMatch={handleJoinMatch} />;
       case 'matchmaking':
-        return (
-          <Matchmaking
-            match={currentMatch}
-            onGameStart={handleGameStart}
-            onLeave={handleLeaveMatch}
-          />
-        );
+        return <Matchmaking match={currentMatch} onGameStart={handleGameStart} onLeave={handleLeaveMatch} />;
       case 'game':
-        return (
-          <GamePlay
-            match={currentMatch}
-            players={matchPlayers}
-            onGameEnd={handleGameEnd}
-          />
-        );
+        return <GamePlay match={currentMatch} players={matchPlayers} onGameEnd={handleGameEnd} />;
       case 'results':
-        return (
-          <GameResults
-            results={gameResults}
-            onBackToLobby={handleBackToLobby}
-          />
-        );
+        return <GameResults results={gameResults} onBackToLobby={handleBackToLobby} />;
       case 'leaderboard':
         return <Leaderboard />;
       case 'dashboard':

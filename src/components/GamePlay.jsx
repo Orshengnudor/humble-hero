@@ -1,7 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { updatePlayerScore, subscribeToMatch, getMatchPlayers, finishMatch } from '../lib/supabase';
-import { formatWallet } from '../lib/solana';
+import { useAccount } from 'wagmi';
+import {
+  updatePlayerScore,
+  subscribeToMatch,
+  getMatchPlayers,
+  finishMatch,
+} from '../lib/supabase';
+import { formatWallet } from '../lib/blockchain';
 import {
   createGameState,
   spawnTarget,
@@ -15,7 +20,7 @@ import {
 import { Zap, Target, Clock } from 'lucide-react';
 
 export default function GamePlay({ match, players: initialPlayers, onGameEnd }) {
-  const { publicKey } = useWallet();
+  const { address } = useAccount();
   const [gameState, setGameState] = useState(createGameState());
   const [opponents, setOpponents] = useState(initialPlayers);
   const [lastHitEffect, setLastHitEffect] = useState(null);
@@ -41,14 +46,14 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
     return () => { channel.unsubscribe(); };
   }, [match.id]);
 
-  // Start game (or rematch)
+  // Start game
   useEffect(() => {
     const delay = isRematch ? 800 : 1200;
     const timer = setTimeout(() => {
       setGameStarted(true);
-      setGameState(prev => ({ 
-        ...prev, 
-        isActive: true, 
+      setGameState(prev => ({
+        ...prev,
+        isActive: true,
         timeLeft: ROUND_DURATION_SEC,
         score: 0,
         combo: 0,
@@ -81,33 +86,25 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
     return () => clearInterval(tickRef.current);
   }, [gameStarted]);
 
-  // Spawn targets - More competitive (faster near end + slight drift)
+  // Spawn targets
   useEffect(() => {
     if (!gameStarted || !gameState.isActive) return;
 
     const scheduleSpawn = () => {
-      const timeLeftFactor = Math.max(0.55, gameState.timeLeft / ROUND_DURATION_SEC); // faster as time runs out
+      const timeLeftFactor = Math.max(0.55, gameState.timeLeft / ROUND_DURATION_SEC);
       spawnTimerRef.current = setTimeout(() => {
         setGameState(prev => {
-          let newTargets = [...prev.targets];
-
           const target = spawnTarget(prev, AREA_WIDTH, AREA_HEIGHT);
           if (target) {
-            // Add slight random drift to make it more dynamic
-            target.x += (Math.random() - 0.5) * 8;
-            target.y += (Math.random() - 0.5) * 8;
-            newTargets.push(target);
+            return { ...prev, targets: [...prev.targets, target] };
           }
-
-          return { ...prev, targets: newTargets };
+          return prev;
         });
-
         if (gsRef.current.isActive) scheduleSpawn();
       }, getRandomSpawnInterval() * timeLeftFactor);
     };
 
     scheduleSpawn();
-
     return () => clearTimeout(spawnTimerRef.current);
   }, [gameStarted, gameState.isActive, gameState.timeLeft]);
 
@@ -122,18 +119,13 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
 
   // Sync score to Supabase
   useEffect(() => {
-    if (!gameStarted || !publicKey) return;
+    if (!gameStarted || !address) return;
     const syncInterval = setInterval(() => {
       const gs = gsRef.current;
-      updatePlayerScore(
-        match.id,
-        publicKey.toBase58(),
-        gs.score,
-        getAvgReactionTime(gs)
-      );
+      updatePlayerScore(match.id, address, gs.score, getAvgReactionTime(gs));
     }, 1800);
     return () => clearInterval(syncInterval);
-  }, [gameStarted, publicKey, match.id]);
+  }, [gameStarted, address, match.id]);
 
   const handleTargetClick = useCallback((targetId) => {
     setGameState(prev => {
@@ -147,34 +139,33 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
   }, []);
 
   const handleGameOver = async (finalState) => {
-    if (!publicKey) return;
+    if (!address) return;
 
-    // Final score sync
     await updatePlayerScore(
       match.id,
-      publicKey.toBase58(),
+      address,
       finalState.score,
       getAvgReactionTime(finalState)
     );
 
-    // Wait for all players to finish
     setTimeout(async () => {
       const allPlayers = await getMatchPlayers(match.id);
       const sorted = [...allPlayers].sort((a, b) => b.score - a.score);
       const maxScore = sorted[0]?.score || 0;
       const tiedPlayers = sorted.filter(p => p.score === maxScore);
 
+      // Handle tie — rematch
       if (tiedPlayers.length > 1 && tiedPlayers.length < allPlayers.length) {
-        // Tie detected → Auto rematch only between tied players
-        console.log(`🔄 Tie detected! Rematch between ${tiedPlayers.length} players`);
         setIsRematch(true);
-        setGameState(createGameState()); // Reset for rematch
+        setGameState(createGameState());
+        setGameStarted(false);
         return;
       }
 
-      // Clear winner → End match
       const winner = sorted[0];
-      if (publicKey.toBase58() === match.host_wallet) {
+
+      // Host declares winner in Supabase (backend picks it up and declares on-chain)
+      if (address === match.host_wallet) {
         await finishMatch(match.id, winner.wallet_address);
       }
 
@@ -182,13 +173,11 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
         ...finalState,
         allPlayers: sorted,
         winner: winner.wallet_address,
-        isWinner: winner.wallet_address === publicKey.toBase58(),
-        prizePool: match.prize_pool || match.entry_fee * allPlayers.length,
+        isWinner: winner.wallet_address === address,
+        prizePool: match.prize_pool || 0,
       });
     }, 1600);
   };
-
-  const myOpponentData = opponents.find(p => p.wallet_address !== publicKey?.toBase58());
 
   return (
     <div className="gameplay">
@@ -210,10 +199,10 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
         </div>
       </div>
 
-      {/* Opponents sidebar */}
+      {/* Opponents */}
       <div className="opponents-bar">
         {opponents
-          .filter(p => p.wallet_address !== publicKey?.toBase58())
+          .filter(p => p.wallet_address !== address)
           .map(p => (
             <div key={p.id} className="opponent-score">
               <span className="opp-name">{formatWallet(p.wallet_address)}</span>
@@ -226,7 +215,7 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
       <div className="game-play-area" ref={gameRef}>
         {!gameStarted && (
           <div className="game-countdown-overlay">
-            <div className="big-text">{isRematch ? "REMATCH!" : "GET READY!"}</div>
+            <div className="big-text">{isRematch ? 'REMATCH!' : 'GET READY!'}</div>
           </div>
         )}
 
@@ -253,7 +242,6 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
           );
         })}
 
-        {/* Hit effects */}
         {lastHitEffect && (
           <div
             className={`hit-effect effect-${lastHitEffect.quality}`}
@@ -275,7 +263,6 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
         )}
       </div>
 
-      {/* Bottom stats */}
       <div className="game-bottom-stats">
         <span>Accuracy: {calculateAccuracy(gameState)}%</span>
         <span>Avg: {getAvgReactionTime(gameState)}ms</span>

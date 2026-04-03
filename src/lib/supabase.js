@@ -1,16 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://nwxkeswqiorspldaqycl.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53eGtlc3dxaW9yc3BsZGFxeWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MzQxMDQsImV4cCI6MjA5MDIxMDEwNH0.d3jSYo1_kTv302iimrBW8U_qrAHjCGC07ps0xxyOE-I';
+const SUPABASE_URL     = import.meta.env.VITE_SUPABASE_URL     || 'https://nwxkeswqiorspldaqycl.supabase.co';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Realtime
+// ─── Realtime ─────────────────────────────────────────────────────────────────
+
 export const subscribeToMatch = (matchId, onUpdate) => {
   return supabase
     .channel(`match:${matchId}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'match_players', filter: `match_id=eq.${matchId}` }, onUpdate)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'matches', filter: `id=eq.${matchId}` }, onUpdate)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'matches',       filter: `id=eq.${matchId}`       }, onUpdate)
     .subscribe();
 };
 
@@ -21,35 +22,38 @@ export const subscribeToLobby = (onUpdate) => {
     .subscribe();
 };
 
-// Match operations
-export const createMatch = async (walletAddress, entrySol, maxPlayers, tier) => {
+// ─── Match Operations ─────────────────────────────────────────────────────────
+
+export const createMatch = async (walletAddress, entryEth, maxPlayers, tier) => {
   const { data, error } = await supabase
     .from('matches')
     .insert({
-      host_wallet: walletAddress,
-      entry_fee: entrySol,
-      max_players: maxPlayers,
-      prize_pool: entrySol,
+      host_wallet:    walletAddress,
+      entry_fee:      entryEth,      // stored as ETH string e.g. "0.0002"
+      max_players:    maxPlayers,
+      prize_pool:     entryEth,
       current_players: 1,
-      tier: tier,
-      status: 'waiting',
+      tier:           tier,
+      status:         'waiting',
     })
     .select()
     .single();
 
   if (error) throw error;
+
+  // Auto-join host
   await joinMatch(data.id, walletAddress);
   return data;
 };
 
 export const joinMatch = async (matchId, walletAddress) => {
-  // Check if already joined
+  // Prevent duplicate joins
   const { data: existing } = await supabase
     .from('match_players')
     .select('id')
     .eq('match_id', matchId)
     .eq('wallet_address', walletAddress)
-    .single();
+    .maybeSingle();
 
   if (existing) return existing;
 
@@ -61,7 +65,7 @@ export const joinMatch = async (matchId, walletAddress) => {
 
   if (error) throw error;
 
-  // Update match player count & prize pool
+  // Update prize pool and player count
   const { data: match } = await supabase
     .from('matches')
     .select('entry_fee, prize_pool, current_players, max_players')
@@ -69,11 +73,9 @@ export const joinMatch = async (matchId, walletAddress) => {
     .single();
 
   if (match) {
-    const newCount = match.current_players + 1;
-    const updates = {
-      prize_pool: match.prize_pool + match.entry_fee,
-      current_players: newCount,
-    };
+    const newCount = (match.current_players || 1) + 1;
+    const newPrize = (parseFloat(match.prize_pool) + parseFloat(match.entry_fee)).toFixed(6);
+    const updates  = { prize_pool: newPrize, current_players: newCount };
     if (newCount >= match.max_players) updates.status = 'starting';
     await supabase.from('matches').update(updates).eq('id', matchId);
   }
@@ -116,7 +118,11 @@ export const updatePlayerScore = async (matchId, walletAddress, score, reactionT
 export const finishMatch = async (matchId, winnerWallet) => {
   const { error } = await supabase
     .from('matches')
-    .update({ status: 'finished', winner_wallet: winnerWallet, finished_at: new Date().toISOString() })
+    .update({
+      status:        'finished',
+      winner_wallet: winnerWallet,
+      finished_at:   new Date().toISOString(),
+    })
     .eq('id', matchId);
 
   if (error) throw error;
@@ -131,48 +137,6 @@ export const startMatch = async (matchId) => {
   if (error) throw error;
 };
 
-export const getLeaderboard = async () => {
-  const { data, error } = await supabase
-    .from('leaderboard')
-    .select('*')
-    .order('total_wins', { ascending: false })
-    .limit(50);
-
-  if (error) throw error;
-  return data || [];
-};
-
-export const updateLeaderboard = async (walletAddress, won, score) => {
-  const { data: existing } = await supabase
-    .from('leaderboard')
-    .select('*')
-    .eq('wallet_address', walletAddress)
-    .single();
-
-  if (existing) {
-    await supabase
-      .from('leaderboard')
-      .update({
-        total_games: existing.total_games + 1,
-        total_wins: won ? existing.total_wins + 1 : existing.total_wins,
-        total_score: existing.total_score + score,
-        total_earnings: won ? existing.total_earnings + score : existing.total_earnings,
-      })
-      .eq('wallet_address', walletAddress);
-  } else {
-    await supabase
-      .from('leaderboard')
-      .insert({
-        wallet_address: walletAddress,
-        total_games: 1,
-        total_wins: won ? 1 : 0,
-        total_score: score,
-        total_earnings: 0,
-      });
-  }
-};
-
-// Get claimable wins for a wallet
 export const getClaimableWins = async (walletAddress) => {
   const { data, error } = await supabase
     .from('matches')
@@ -186,7 +150,6 @@ export const getClaimableWins = async (walletAddress) => {
   return data || [];
 };
 
-// Mark prize as claimed
 export const markPrizeClaimed = async (matchId, txId) => {
   const { error } = await supabase
     .from('matches')
@@ -194,4 +157,73 @@ export const markPrizeClaimed = async (matchId, txId) => {
     .eq('id', matchId);
 
   if (error) throw error;
+};
+
+// ─── Points & Leaderboard ─────────────────────────────────────────────────────
+
+export const awardPoints = async (walletAddress, points, won) => {
+  const pointsToAward = won ? points * 2 : points; // winners get 2x
+
+  const { data: existing } = await supabase
+    .from('leaderboard')
+    .select('*')
+    .eq('wallet_address', walletAddress)
+    .maybeSingle();
+
+  if (existing) {
+    await supabase
+      .from('leaderboard')
+      .update({
+        total_games:  existing.total_games + 1,
+        total_wins:   won ? existing.total_wins + 1 : existing.total_wins,
+        total_score:  existing.total_score + (won ? 1 : 0),
+        total_points: (existing.total_points || 0) + pointsToAward,
+        total_eth_won: won
+          ? (parseFloat(existing.total_eth_won || 0) + 0).toFixed(6) // updated on claim
+          : existing.total_eth_won,
+      })
+      .eq('wallet_address', walletAddress);
+  } else {
+    await supabase
+      .from('leaderboard')
+      .insert({
+        wallet_address: walletAddress,
+        total_games:    1,
+        total_wins:     won ? 1 : 0,
+        total_score:    won ? 1 : 0,
+        total_points:   pointsToAward,
+        total_eth_won:  '0',
+      });
+  }
+};
+
+export const updateLeaderboard = async (walletAddress, won, score, tierPoints = 1000) => {
+  await awardPoints(walletAddress, tierPoints, won);
+};
+
+export const recordEthWin = async (walletAddress, ethAmount) => {
+  const { data: existing } = await supabase
+    .from('leaderboard')
+    .select('total_eth_won')
+    .eq('wallet_address', walletAddress)
+    .maybeSingle();
+
+  if (existing) {
+    const newTotal = (parseFloat(existing.total_eth_won || 0) + parseFloat(ethAmount)).toFixed(6);
+    await supabase
+      .from('leaderboard')
+      .update({ total_eth_won: newTotal })
+      .eq('wallet_address', walletAddress);
+  }
+};
+
+export const getLeaderboard = async () => {
+  const { data, error } = await supabase
+    .from('leaderboard')
+    .select('*')
+    .order('total_points', { ascending: false })
+    .limit(50);
+
+  if (error) throw error;
+  return data || [];
 };

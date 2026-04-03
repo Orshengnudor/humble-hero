@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useAccount } from 'wagmi';
 import { subscribeToMatch, getMatchPlayers, startMatch } from '../lib/supabase';
-import { formatWallet, POOL_TIERS } from '../lib/solana';
+import { formatWallet, getTierByKey } from '../lib/blockchain';
 import { Users, Loader } from 'lucide-react';
 
 export default function Matchmaking({ match, onGameStart, onLeave }) {
-  const { publicKey } = useWallet();
+  const { address } = useAccount();
   const [players, setPlayers] = useState([]);
   const [countdown, setCountdown] = useState(null);
   const [matchData, setMatchData] = useState(match);
 
-  const tierInfo = POOL_TIERS[matchData.tier] || POOL_TIERS.basic;
+  const tierKey = matchData.tier || 'basic';
+  const tierInfo = getTierByKey(tierKey);
   const remaining = matchData.max_players - players.length;
 
   const loadPlayers = async () => {
@@ -22,23 +23,28 @@ export default function Matchmaking({ match, onGameStart, onLeave }) {
     loadPlayers();
     const channel = subscribeToMatch(match.id, (payload) => {
       loadPlayers();
-      if (payload.new?.status === 'starting' || payload.new?.status === 'in_progress') {
+      if (
+        payload.new?.status === 'starting' ||
+        payload.new?.status === 'in_progress'
+      ) {
         setMatchData(prev => ({ ...prev, ...payload.new }));
       }
     });
     return () => { channel.unsubscribe(); };
   }, [match.id]);
 
+  // Auto-countdown when full
   useEffect(() => {
     if (players.length >= matchData.max_players && !countdown) {
       setCountdown(5);
     }
   }, [players.length, matchData.max_players]);
 
+  // Countdown timer
   useEffect(() => {
     if (countdown === null) return;
     if (countdown <= 0) {
-      const isHost = publicKey?.toBase58() === matchData.host_wallet;
+      const isHost = address === matchData.host_wallet;
       if (isHost) startMatch(match.id);
       onGameStart(matchData, players);
       return;
@@ -54,14 +60,14 @@ export default function Matchmaking({ match, onGameStart, onLeave }) {
     }
   };
 
-  const isHost = publicKey?.toBase58() === matchData.host_wallet;
+  const isHost = address === matchData.host_wallet;
 
   return (
     <div className="matchmaking">
       <div className="matchmaking-card">
         <div className="matchmaking-header">
-          <div className="mm-tier-badge" style={{ color: tierInfo.color }}>
-            {tierInfo.icon} {tierInfo.name} Pool
+          <div className="mm-tier-badge" style={{ color: 'var(--primary-glow)' }}>
+            {tierInfo.label}
           </div>
           <h2>Waiting for Players</h2>
           <div className="match-id">Match #{match.id.slice(0, 8)}</div>
@@ -81,7 +87,9 @@ export default function Matchmaking({ match, onGameStart, onLeave }) {
 
         <div className="prize-display">
           <span className="prize-label">Prize Pool</span>
-          <span className="prize-amount">🏆 {(matchData.prize_pool || matchData.entry_fee * players.length).toFixed(4)} SOL</span>
+          <span className="prize-amount">
+            🏆 {Number(matchData.prize_pool || tierInfo.hero * matchData.max_players).toLocaleString()} $HERO
+          </span>
         </div>
 
         <div className="players-list">
@@ -90,12 +98,17 @@ export default function Matchmaking({ match, onGameStart, onLeave }) {
               <span className="player-num">#{i + 1}</span>
               <span className="player-wallet">
                 {formatWallet(p.wallet_address)}
-                {p.wallet_address === matchData.host_wallet && <span className="host-badge">HOST</span>}
-                {p.wallet_address === publicKey?.toBase58() && <span className="you-badge">YOU</span>}
+                {p.wallet_address === matchData.host_wallet && (
+                  <span className="host-badge">HOST</span>
+                )}
+                {p.wallet_address === address && (
+                  <span className="you-badge">YOU</span>
+                )}
               </span>
               <span className="player-ready">✓</span>
             </div>
           ))}
+
           {Array.from({ length: remaining }).map((_, i) => (
             <div key={`empty-${i}`} className="player-item empty">
               <span className="player-num">#{players.length + i + 1}</span>
@@ -118,7 +131,9 @@ export default function Matchmaking({ match, onGameStart, onLeave }) {
               Start Now ({players.length} players)
             </button>
           )}
-          <button className="leave-btn" onClick={onLeave}>Leave Match</button>
+          <button className="leave-btn" onClick={onLeave}>
+            Leave Match
+          </button>
         </div>
       </div>
     </div>

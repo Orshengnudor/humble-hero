@@ -1,346 +1,191 @@
-/**
- * Humble Hero - Blockchain Service
- * Connects the Anchor escrow program to the React frontend.
- * 
- * This replaces the placeholder payEntryFee / distributePrize logic
- * with real on-chain escrow interactions.
- */
-
-import {
-  Connection,
-  PublicKey,
-  SystemProgram,
-  LAMPORTS_PER_SOL,
-  Transaction,
-  TransactionInstruction,
-} from '@solana/web3.js';
-import { AnchorProvider, Program, BN, web3 } from '@coral-xyz/anchor';
+import { ethers } from 'ethers';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-const PROGRAM_ID = new PublicKey(
-  import.meta.env.VITE_PROGRAM_ID || 'HmbLHeroXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
-);
+const RPC_URL = import.meta.env.VITE_BASE_RPC || 'https://mainnet.base.org';
+export const provider = new ethers.JsonRpcProvider(RPC_URL);
 
-const ADMIN_PUBKEY = new PublicKey(
-  import.meta.env.VITE_ADMIN_PUBKEY || '11111111111111111111111111111111'
-);
+export const ESCROW_CONTRACT_ADDRESS = import.meta.env.VITE_ESCROW_CONTRACT || null;
+export const PLATFORM_FEE_PERCENT    = 5;
 
-const SOLANA_RPC = import.meta.env.VITE_SOLANA_RPC || 'https://api.devnet.solana.com';
+// ─── Pool Tiers ──────────────────────────────────────────────────────────────
+// Entry fees in ETH. Adjust the eth values when ETH price changes.
+// Points are awarded per game played (win or lose) — higher pool = more points.
+// Points will convert to $HERO airdrop in the future.
 
-export const connection = new Connection(SOLANA_RPC, 'confirmed');
-
-// Platform fee = 5% (matches on-chain constant)
-export const PLATFORM_FEE_PERCENT = 5;
-
-// Entry fee options in SOL (converted to lamports when sending)
 export const ENTRY_TIERS = {
-  micro:  { sol: 0.01, label: '0.01 SOL', display: '$0.01' },
-  basic:  { sol: 0.05, label: '0.05 SOL', display: '$0.05' },
-  mid:    { sol: 0.1,  label: '0.1 SOL',  display: '$0.10' },
-  high:   { sol: 0.5,  label: '0.5 SOL',  display: '$0.50' },
-  whale:  { sol: 1.0,  label: '1 SOL',    display: '$1.00' },
+  bronze:   { eth: '0.0002', label: '$0.50',  points: 1_000,  icon: '🥉' },
+  silver:   { eth: '0.0004', label: '$1',      points: 2_500,  icon: '🥈' },
+  gold:     { eth: '0.0008', label: '$2',      points: 6_000,  icon: '🥇' },
+  platinum: { eth: '0.002',  label: '$5',      points: 15_000, icon: '💎' },
+  diamond:  { eth: '0.004',  label: '$10',     points: 35_000, icon: '💠' },
+  elite:    { eth: '0.02',   label: '$50',     points: 75_000, icon: '👑' },
 };
 
 export const PLAYER_OPTIONS = [2, 3, 4, 5, 6, 8, 10];
+export const getTierByKey   = (key) => ENTRY_TIERS[key] || ENTRY_TIERS.bronze;
 
-// ─── PDA Helpers ─────────────────────────────────────────────────────────────
+// Points multiplier for winning vs just playing
+export const WIN_POINTS_MULTIPLIER = 2; // Winners get 2x points
 
-/**
- * Convert a UUID string to a 32-byte array for use as match_id
- */
-export const uuidToBytes = (uuid) => {
+// ─── Escrow ABI ──────────────────────────────────────────────────────────────
+
+const ESCROW_ABI = [
+  'function createMatch(bytes32 matchId, uint256 maxPlayers) external payable',
+  'function joinMatch(bytes32 matchId) external payable',
+  'function claimPrize(bytes32 matchId) external',
+  'function getMatch(bytes32 matchId) external view returns (address host, uint256 entryFee, uint256 maxPlayers, uint256 playerCount, uint256 totalDeposited, address winner, uint8 status, bool prizeClaimed)',
+  'function getPlayers(bytes32 matchId) external view returns (address[10])',
+  'function getContractBalance() external view returns (uint256)',
+];
+
+// ─── UUID → bytes32 ──────────────────────────────────────────────────────────
+
+export const uuidToBytes32 = (uuid) => {
   const hex = uuid.replace(/-/g, '');
-  const bytes = new Uint8Array(32);
-  for (let i = 0; i < 32; i++) {
-    bytes[i] = i < 16 ? parseInt(hex.slice(i * 2, i * 2 + 2), 16) : 0;
-  }
-  return Array.from(bytes);
+  return '0x' + hex.padEnd(64, '0');
 };
 
-/**
- * Derive the match escrow PDA from match_id
- */
-export const getMatchEscrowPDA = (matchIdBytes) => {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from('match_escrow'), Buffer.from(matchIdBytes)],
-    PROGRAM_ID
-  );
+// ─── walletClient → ethers signer ────────────────────────────────────────────
+
+export const walletClientToSigner = async (walletClient) => {
+  const { account, chain, transport } = walletClient;
+  const network = { chainId: chain.id, name: chain.name };
+  const ethersProvider = new ethers.BrowserProvider(transport, network);
+  return ethersProvider.getSigner(account.address);
 };
 
-// ─── Program Loader ──────────────────────────────────────────────────────────
+// ─── Contract instance ────────────────────────────────────────────────────────
 
-/**
- * Build an AnchorProvider + Program from a connected wallet adapter
- */
-export const getProgram = (walletAdapter) => {
-  const provider = new AnchorProvider(
-    connection,
-    {
-      publicKey: walletAdapter.publicKey,
-      signTransaction: (tx) => walletAdapter.signTransaction(tx),
-      signAllTransactions: (txs) => walletAdapter.signAllTransactions(txs),
-    },
-    { commitment: 'confirmed' }
-  );
-
-  // IDL is auto-generated by anchor build — import it here
-  // In production: import IDL from '../idl/humble_hero.json';
-  // For now we use the raw instruction builder pattern below
-  return provider;
+const getEscrowContract = (signerOrProvider) => {
+  if (!ESCROW_CONTRACT_ADDRESS) throw new Error('VITE_ESCROW_CONTRACT not set in .env');
+  return new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signerOrProvider);
 };
 
-// ─── Instructions ─────────────────────────────────────────────────────────────
+// ─── ETH Balance ─────────────────────────────────────────────────────────────
 
-/**
- * CREATE MATCH — host pays entry fee, escrow PDA is initialized
- * Called when host clicks "Create Pool" in Lobby
- */
-export const createMatchOnChain = async (walletAdapter, matchId, maxPlayers, entrySol) => {
-  if (!walletAdapter.publicKey) throw new Error('Wallet not connected');
-
-  const matchIdBytes = uuidToBytes(matchId);
-  const entryLamports = Math.round(entrySol * LAMPORTS_PER_SOL);
-  const [escrowPDA, bump] = getMatchEscrowPDA(matchIdBytes);
-
+export const getEthBalance = async (address) => {
+  if (!address) return 0;
   try {
-    // Build the instruction using the program's IDL
-    // In a real Anchor setup with the compiled IDL, this would be:
-    // await program.methods.createMatch(matchIdBytes, maxPlayers, new BN(entryLamports))
-    //   .accounts({ matchEscrow: escrowPDA, host: wallet.publicKey, admin: ADMIN_PUBKEY, systemProgram: SystemProgram.programId })
-    //   .rpc();
-    //
-    // For deployment, import the compiled IDL and use the Program class:
-    
-    const provider = getProgram(walletAdapter);
-    
-    // Instruction discriminator for create_match (anchor sha256 hash)
-    // This is what anchor auto-generates — replace with imported IDL in prod
-    const data = buildInstruction('create_match', {
-      match_id: matchIdBytes,
-      max_players: maxPlayers,
-      entry_lamports: entryLamports,
-    });
-
-    const ix = new TransactionInstruction({
-      programId: PROGRAM_ID,
-      keys: [
-        { pubkey: escrowPDA,              isSigner: false, isWritable: true  },
-        { pubkey: walletAdapter.publicKey, isSigner: true,  isWritable: true  },
-        { pubkey: ADMIN_PUBKEY,           isSigner: false, isWritable: false },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      ],
-      data,
-    });
-
-    const tx = new Transaction().add(ix);
-    const { blockhash } = await connection.getLatestBlockhash();
-    tx.recentBlockhash = blockhash;
-    tx.feePayer = walletAdapter.publicKey;
-
-    const signed = await walletAdapter.signTransaction(tx);
-    const txId = await connection.sendRawTransaction(signed.serialize());
-    await connection.confirmTransaction(txId, 'confirmed');
-
-    return {
-      success: true,
-      txId,
-      escrowPDA: escrowPDA.toBase58(),
-      matchIdBytes,
-    };
+    const balance = await provider.getBalance(address);
+    return parseFloat(ethers.formatEther(balance));
   } catch (err) {
-    console.error('createMatchOnChain failed:', err);
-    return { success: false, error: err.message };
-  }
-};
-
-/**
- * JOIN MATCH — player pays entry fee into existing escrow
- * Called when player clicks "Join" in Lobby
- */
-export const joinMatchOnChain = async (walletAdapter, matchId) => {
-  if (!walletAdapter.publicKey) throw new Error('Wallet not connected');
-
-  const matchIdBytes = uuidToBytes(matchId);
-  const [escrowPDA] = getMatchEscrowPDA(matchIdBytes);
-
-  try {
-    const data = buildInstruction('join_match', { match_id: matchIdBytes });
-
-    const ix = new TransactionInstruction({
-      programId: PROGRAM_ID,
-      keys: [
-        { pubkey: escrowPDA,               isSigner: false, isWritable: true },
-        { pubkey: walletAdapter.publicKey,  isSigner: true,  isWritable: true },
-        { pubkey: SystemProgram.programId,  isSigner: false, isWritable: false },
-      ],
-      data,
-    });
-
-    const tx = new Transaction().add(ix);
-    const { blockhash } = await connection.getLatestBlockhash();
-    tx.recentBlockhash = blockhash;
-    tx.feePayer = walletAdapter.publicKey;
-
-    const signed = await walletAdapter.signTransaction(tx);
-    const txId = await connection.sendRawTransaction(signed.serialize());
-    await connection.confirmTransaction(txId, 'confirmed');
-
-    return { success: true, txId };
-  } catch (err) {
-    console.error('joinMatchOnChain failed:', err);
-    return { success: false, error: err.message };
-  }
-};
-
-/**
- * CLAIM PRIZE — winner calls this from their Dashboard
- * The escrow pays out (prize - 5% fee) to winner, 5% to admin wallet
- */
-export const claimPrizeOnChain = async (walletAdapter, matchId) => {
-  if (!walletAdapter.publicKey) throw new Error('Wallet not connected');
-
-  const matchIdBytes = uuidToBytes(matchId);
-  const [escrowPDA] = getMatchEscrowPDA(matchIdBytes);
-
-  try {
-    const data = buildInstruction('claim_prize', { match_id: matchIdBytes });
-
-    const ix = new TransactionInstruction({
-      programId: PROGRAM_ID,
-      keys: [
-        { pubkey: escrowPDA,               isSigner: false, isWritable: true  },
-        { pubkey: walletAdapter.publicKey,  isSigner: true,  isWritable: true  },
-        { pubkey: ADMIN_PUBKEY,            isSigner: false, isWritable: true  },
-        { pubkey: SystemProgram.programId,  isSigner: false, isWritable: false },
-      ],
-      data,
-    });
-
-    const tx = new Transaction().add(ix);
-    const { blockhash } = await connection.getLatestBlockhash();
-    tx.recentBlockhash = blockhash;
-    tx.feePayer = walletAdapter.publicKey;
-
-    const signed = await walletAdapter.signTransaction(tx);
-    const txId = await connection.sendRawTransaction(signed.serialize());
-    await connection.confirmTransaction(txId, 'confirmed');
-
-    return { success: true, txId };
-  } catch (err) {
-    console.error('claimPrizeOnChain failed:', err);
-    return { success: false, error: err.message };
-  }
-};
-
-/**
- * FETCH ESCROW STATE — read the on-chain escrow account
- */
-export const fetchEscrowState = async (matchId) => {
-  try {
-    const matchIdBytes = uuidToBytes(matchId);
-    const [escrowPDA] = getMatchEscrowPDA(matchIdBytes);
-    const accountInfo = await connection.getAccountInfo(escrowPDA);
-    if (!accountInfo) return null;
-
-    // Deserialize manually (or use Anchor Program.account.matchEscrow.fetch)
-    // With IDL imported: return program.account.matchEscrow.fetch(escrowPDA);
-    return {
-      pda: escrowPDA.toBase58(),
-      lamports: accountInfo.lamports,
-      solBalance: accountInfo.lamports / LAMPORTS_PER_SOL,
-    };
-  } catch (err) {
-    console.error('fetchEscrowState failed:', err);
-    return null;
-  }
-};
-
-/**
- * GET SOL BALANCE for a wallet
- */
-export const getSolBalance = async (publicKey) => {
-  try {
-    const balance = await connection.getBalance(publicKey);
-    return balance / LAMPORTS_PER_SOL;
-  } catch {
+    console.error('Error fetching ETH balance:', err);
     return 0;
   }
 };
 
-/**
- * Validate wallet has enough SOL for entry + tx fees (~0.002 SOL buffer)
- */
-export const validateSolBalance = async (publicKey, entrySol) => {
-  const balance = await getSolBalance(publicKey);
-  const required = entrySol + 0.002; // entry + tx fee buffer
+// ─── Validate Balance ─────────────────────────────────────────────────────────
+
+export const validateEntryBalance = async (address, tierKey = 'bronze') => {
+  const tier    = getTierByKey(tierKey);
+  const balance = await getEthBalance(address);
+  const required = parseFloat(tier.eth) + 0.001; // entry + gas buffer
   return {
     hasEnough: balance >= required,
-    balance,
-    required,
-    shortBy: Math.max(0, required - balance),
+    balance:   parseFloat(balance.toFixed(6)),
+    required:  parseFloat(tier.eth),
+    tierLabel: tier.label,
   };
+};
+
+// ─── Create Match On-chain ────────────────────────────────────────────────────
+
+export const createMatchOnChain = async (walletClient, matchId, maxPlayers, tierKey = 'bronze') => {
+  try {
+    const tier          = getTierByKey(tierKey);
+    const entryFeeWei   = ethers.parseEther(tier.eth);
+    const matchIdBytes32 = uuidToBytes32(matchId);
+
+    const signer   = await walletClientToSigner(walletClient);
+    const contract = getEscrowContract(signer);
+
+    const tx      = await contract.createMatch(matchIdBytes32, maxPlayers, { value: entryFeeWei });
+    const receipt = await tx.wait();
+
+    return { success: true, txId: tx.hash, blockNumber: receipt.blockNumber };
+  } catch (err) {
+    console.error('createMatchOnChain failed:', err);
+    return { success: false, error: err.reason || err.message };
+  }
+};
+
+// ─── Join Match On-chain ──────────────────────────────────────────────────────
+
+export const joinMatchOnChain = async (walletClient, matchId, tierKey = 'bronze') => {
+  try {
+    const tier           = getTierByKey(tierKey);
+    const entryFeeWei    = ethers.parseEther(tier.eth);
+    const matchIdBytes32 = uuidToBytes32(matchId);
+
+    const signer   = await walletClientToSigner(walletClient);
+    const contract = getEscrowContract(signer);
+
+    const tx      = await contract.joinMatch(matchIdBytes32, { value: entryFeeWei });
+    const receipt = await tx.wait();
+
+    return { success: true, txId: tx.hash, blockNumber: receipt.blockNumber };
+  } catch (err) {
+    console.error('joinMatchOnChain failed:', err);
+    return { success: false, error: err.reason || err.message };
+  }
+};
+
+// ─── Claim Prize On-chain ─────────────────────────────────────────────────────
+
+export const claimPrizeOnChain = async (walletClient, matchId) => {
+  try {
+    const matchIdBytes32 = uuidToBytes32(matchId);
+    const signer         = await walletClientToSigner(walletClient);
+    const contract       = getEscrowContract(signer);
+
+    const tx      = await contract.claimPrize(matchIdBytes32);
+    const receipt = await tx.wait();
+
+    return { success: true, txId: tx.hash, blockNumber: receipt.blockNumber };
+  } catch (err) {
+    console.error('claimPrizeOnChain failed:', err);
+    return { success: false, error: err.reason || err.message };
+  }
+};
+
+// ─── Read Escrow State ────────────────────────────────────────────────────────
+
+export const getMatchOnChain = async (matchId) => {
+  try {
+    const matchIdBytes32 = uuidToBytes32(matchId);
+    const contract       = getEscrowContract(provider);
+    const data           = await contract.getMatch(matchIdBytes32);
+    return {
+      host:           data[0],
+      entryFee:       ethers.formatEther(data[1]),
+      maxPlayers:     Number(data[2]),
+      playerCount:    Number(data[3]),
+      totalDeposited: ethers.formatEther(data[4]),
+      winner:         data[5],
+      status:         Number(data[6]),
+      prizeClaimed:   data[7],
+    };
+  } catch (err) {
+    console.error('getMatchOnChain failed:', err);
+    return null;
+  }
 };
 
 // ─── Format Helpers ───────────────────────────────────────────────────────────
 
 export const formatWallet = (address) => {
   if (!address) return '';
-  const str = typeof address === 'string' ? address : address.toBase58();
+  const str = String(address);
   if (str.length <= 12) return str;
-  return `${str.slice(0, 4)}....${str.slice(-5)}`;
+  return `${str.slice(0, 6)}....${str.slice(-4)}`;
 };
 
-export const formatSol = (lamports) => {
-  return (lamports / LAMPORTS_PER_SOL).toFixed(4);
+export const formatEth = (wei) => {
+  if (!wei) return '0';
+  return parseFloat(ethers.formatEther(wei.toString())).toFixed(4);
 };
 
-export const lamportsToSol = (lamports) => lamports / LAMPORTS_PER_SOL;
-export const solToLamports = (sol) => Math.round(sol * LAMPORTS_PER_SOL);
-
-// ─── Instruction Builder (pre-IDL helper) ────────────────────────────────────
-/**
- * Builds serialized instruction data for Anchor instructions.
- * In production replace this with the auto-generated IDL client:
- *   import { Program } from '@coral-xyz/anchor';
- *   import IDL from '../idl/humble_hero.json';
- *   const program = new Program(IDL, PROGRAM_ID, provider);
- *   await program.methods.createMatch(...).accounts({...}).rpc();
- */
-const buildInstruction = (instructionName, args) => {
-  // Anchor discriminators are first 8 bytes of sha256("global:<instruction_name>")
-  // These are deterministic — generated by anchor build
-  const discriminators = {
-    create_match:    Buffer.from([212, 177, 136, 46,  24,  94, 194, 177]),
-    join_match:      Buffer.from([54,  167, 25,  229, 141, 53, 165, 36 ]),
-    declare_winner:  Buffer.from([99,  183, 126, 205, 37,  75, 150, 88 ]),
-    claim_prize:     Buffer.from([157, 233, 137, 208, 16,  45, 249, 12 ]),
-    refund_match:    Buffer.from([22,  44,  200, 119, 85,  97, 181, 234]),
-    reclaim_expired: Buffer.from([78,  211, 104, 33,  56,  91, 66,  17 ]),
-  };
-
-  const disc = discriminators[instructionName];
-  if (!disc) throw new Error(`Unknown instruction: ${instructionName}`);
-
-  const buffers = [disc];
-
-  // Serialize args in Borsh format (Anchor's default)
-  if (args.match_id) {
-    buffers.push(Buffer.from(args.match_id));
-  }
-  if (args.max_players !== undefined) {
-    const b = Buffer.alloc(1);
-    b.writeUInt8(args.max_players);
-    buffers.push(b);
-  }
-  if (args.entry_lamports !== undefined) {
-    const b = Buffer.alloc(8);
-    b.writeBigUInt64LE(BigInt(args.entry_lamports));
-    buffers.push(b);
-  }
-  if (args.winner) {
-    buffers.push(args.winner.toBuffer());
-  }
-
-  return Buffer.concat(buffers);
+export const ethToUsd = (eth, ethPrice = 2500) => {
+  return (parseFloat(eth) * ethPrice).toFixed(2);
 };

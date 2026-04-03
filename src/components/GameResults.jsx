@@ -1,8 +1,8 @@
 import { Trophy, Medal, Star, ArrowLeft, Zap, Target } from 'lucide-react';
-import { formatWallet } from '../lib/solana';
+import { formatWallet } from '../lib/blockchain';
 
 export default function GameResults({ results, onBackToLobby }) {
-  const { allPlayers, winner, isWinner, prizePool, score, hits, misses, perfectHits, maxCombo } = results;
+  const { allPlayers, winner, isWinner, prizePool, score, hits, perfectHits, maxCombo } = results;
 
   return (
     <div className="game-results">
@@ -12,8 +12,7 @@ export default function GameResults({ results, onBackToLobby }) {
             <>
               <Trophy size={48} className="trophy-icon" />
               <h1>YOU WIN!</h1>
-              <p className="prize-won">🏆 {prizePool?.toFixed(4)} SOL</p>
-              <p className="claim-hint">Go to Dashboard to claim your prize!</p>
+              <p className="prize-won">🏆 {prizePool} $HERO</p>
             </>
           ) : (
             <>

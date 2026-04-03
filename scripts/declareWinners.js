@@ -1,112 +1,59 @@
 import 'dotenv/config';
-/**
- * Humble Hero - Winner Declaration Service
- * Run with: node scripts/declareWinners.js
- */
-
-import {
-  Connection,
-  PublicKey,
-  Keypair,
-  Transaction,
-  TransactionInstruction,
-} from '@solana/web3.js';
+import { ethers } from 'ethers';
 import { createClient } from '@supabase/supabase-js';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
-const SOLANA_RPC = process.env.SOLANA_RPC || 'https://api.devnet.solana.com';
-const connection = new Connection(SOLANA_RPC, 'confirmed');
 
-// Get Program ID safely
-let PROGRAM_ID;
-try {
-  const programIdStr = process.env.PROGRAM_ID;
-  if (!programIdStr || programIdStr.length < 32) {
-    throw new Error("PROGRAM_ID environment variable is missing or invalid");
-  }
-  PROGRAM_ID = new PublicKey(programIdStr);
-} catch (err) {
-  console.error("❌ Invalid PROGRAM_ID:", err.message);
-  console.error("Please set PROGRAM_ID in your .env file (the deployed program address)");
-  process.exit(1);
-}
+const RPC_URL          = process.env.BASE_RPC            || 'https://mainnet.base.org';
+const ESCROW_ADDRESS   = process.env.ESCROW_CONTRACT_ADDRESS;
+const ADMIN_PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY;
 
-// Load Admin Keypair safely
-let adminKeypair;
-try {
-  const keypairJson = process.env.ADMIN_KEYPAIR_JSON;
-  if (!keypairJson) throw new Error("ADMIN_KEYPAIR_JSON is not set");
-  adminKeypair = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(keypairJson)));
-} catch (err) {
-  console.error("❌ Failed to load ADMIN_KEYPAIR_JSON:", err.message);
-  process.exit(1);
-}
+if (!ESCROW_ADDRESS)    { console.error('❌ ESCROW_CONTRACT_ADDRESS not set'); process.exit(1); }
+if (!ADMIN_PRIVATE_KEY) { console.error('❌ ADMIN_PRIVATE_KEY not set');       process.exit(1); }
+
+const provider    = new ethers.JsonRpcProvider(RPC_URL);
+const adminWallet = new ethers.Wallet(ADMIN_PRIVATE_KEY, provider);
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
 
-// ─── Helper Functions ────────────────────────────────────────────────────────
-const uuidToBytes = (uuid) => {
+const ESCROW_ABI = [
+  'function declareWinner(bytes32 matchId, address winner) external',
+  'function getMatch(bytes32 matchId) external view returns (address host, uint256 entryFee, uint256 maxPlayers, uint256 playerCount, uint256 totalDeposited, address winner, uint8 status, bool prizeClaimed)',
+];
+
+const escrowContract = new ethers.Contract(ESCROW_ADDRESS, ESCROW_ABI, adminWallet);
+
+// ─── UUID → bytes32 ──────────────────────────────────────────────────────────
+
+const uuidToBytes32 = (uuid) => {
   const hex = uuid.replace(/-/g, '');
-  const bytes = new Uint8Array(32);
-  for (let i = 0; i < 16; i++) {
-    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-  }
-  return bytes;
+  return '0x' + hex.padEnd(64, '0');
 };
 
-const getMatchEscrowPDA = (matchIdBytes) => {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from('match_escrow'), Buffer.from(matchIdBytes)],
-    PROGRAM_ID
-  )[0];
+// ─── Declare Winner ───────────────────────────────────────────────────────────
+
+const declareWinnerOnChain = async (matchId, winnerAddress) => {
+  const matchIdBytes32 = uuidToBytes32(matchId);
+
+  console.log(`\n🏆 Declaring winner for match ${matchId.slice(0, 8)}...`);
+  console.log(`   Winner: ${winnerAddress}`);
+
+  const tx      = await escrowContract.declareWinner(matchIdBytes32, winnerAddress);
+  console.log(`   TX sent: ${tx.hash}`);
+
+  const receipt = await tx.wait();
+  console.log(`   ✅ Confirmed in block ${receipt.blockNumber}`);
+
+  return tx.hash;
 };
 
-// ─── Declare Winner On-chain ─────────────────────────────────────────────────
-const declareWinnerOnChain = async (matchId, winnerWallet) => {
-  const matchIdBytes = uuidToBytes(matchId);
-  const escrowPDA = getMatchEscrowPDA(matchIdBytes);
-  const winnerPubkey = new PublicKey(winnerWallet);
+// ─── Process Matches ──────────────────────────────────────────────────────────
 
-  console.log(`\n🏆 Processing match ${matchId}`);
-  console.log(`   Winner: ${winnerWallet}`);
-  console.log(`   Escrow PDA: ${escrowPDA.toBase58()}`);
-
-  const discriminator = Buffer.from([99, 183, 126, 205, 37, 75, 150, 88]); // declare_winner
-
-  const data = Buffer.concat([
-    discriminator,
-    Buffer.from(matchIdBytes),
-    winnerPubkey.toBuffer()
-  ]);
-
-  const ix = new TransactionInstruction({
-    programId: PROGRAM_ID,
-    keys: [
-      { pubkey: escrowPDA, isSigner: false, isWritable: true },
-      { pubkey: adminKeypair.publicKey, isSigner: true, isWritable: false },
-    ],
-    data,
-  });
-
-  const tx = new Transaction().add(ix);
-  const { blockhash } = await connection.getLatestBlockhash();
-  tx.recentBlockhash = blockhash;
-  tx.feePayer = adminKeypair.publicKey;
-  tx.sign(adminKeypair);
-
-  const txId = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: true });
-  await connection.confirmTransaction(txId, 'confirmed');
-
-  console.log(`   ✅ Success! TX: ${txId}`);
-  return txId;
-};
-
-// ─── Main Processor ──────────────────────────────────────────────────────────
 const processFinishedMatches = async () => {
-  console.log('🔍 Checking for finished matches to declare...');
+  console.log('\n🔍 Checking for finished matches...');
 
   const { data: matches, error } = await supabase
     .from('matches')
@@ -116,39 +63,58 @@ const processFinishedMatches = async () => {
     .is('declare_tx', null);
 
   if (error) {
-    console.error('Supabase error:', error);
+    console.error('Supabase error:', error.message);
     return;
   }
 
   if (!matches?.length) {
-    console.log('   No pending matches found.');
+    console.log('   No pending matches.');
     return;
   }
 
+  console.log(`   Found ${matches.length} match(es) to process.`);
+
   for (const match of matches) {
     try {
-      const txId = await declareWinnerOnChain(match.id, match.winner_wallet);
+      // Verify winner is a registered player
+      const players = match.match_players.map(p => p.wallet_address.toLowerCase());
+      if (!players.includes(match.winner_wallet.toLowerCase())) {
+        console.error(`   ❌ Winner not in player list for match ${match.id.slice(0, 8)}`);
+        continue;
+      }
+
+      const txHash = await declareWinnerOnChain(match.id, match.winner_wallet);
 
       await supabase
         .from('matches')
-        .update({ declare_tx: txId, prize_claimed: false })
+        .update({ declare_tx: txHash })
         .eq('id', match.id);
 
-      console.log(`   ✅ Match ${match.id.slice(0,8)}... processed`);
+      console.log(`   ✅ Match ${match.id.slice(0, 8)}... processed`);
     } catch (err) {
-      console.error(`   ❌ Failed match ${match.id}:`, err.message);
+      console.error(`   ❌ Match ${match.id.slice(0, 8)} failed:`, err.message);
     }
   }
 };
 
-// ─── Start Watcher ───────────────────────────────────────────────────────────
-const startWatcher = async () => {
-  console.log('🚀 Humble Hero Winner Declarer Started');
-  console.log(`   Program: ${PROGRAM_ID.toBase58()}`);
-  console.log(`   Admin: ${adminKeypair.publicKey.toBase58()}\n`);
+// ─── Start ────────────────────────────────────────────────────────────────────
+
+const start = async () => {
+  const network = await provider.getNetwork();
+  const balance = await provider.getBalance(adminWallet.address);
+
+  console.log('🚀 Humble Hero Winner Declarer — Base Network');
+  console.log(`   Chain:   ${network.name} (${network.chainId})`);
+  console.log(`   Admin:   ${adminWallet.address}`);
+  console.log(`   Escrow:  ${ESCROW_ADDRESS}`);
+  console.log(`   Balance: ${ethers.formatEther(balance)} ETH`);
+
+  if (balance < ethers.parseEther('0.001')) {
+    console.warn('\n⚠️  Admin wallet ETH is low. Send at least 0.01 ETH to cover gas fees.');
+  }
 
   await processFinishedMatches();
-  setInterval(processFinishedMatches, 15000); // every 15 seconds
+  setInterval(processFinishedMatches, 15_000);
 };
 
-startWatcher().catch(console.error);
+start().catch(console.error);
