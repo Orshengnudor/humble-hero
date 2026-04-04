@@ -1565,3 +1565,68 @@
 
 .slots-joined    { color: var(--accent-glow); font-weight: 700; }
 .slots-remaining { color: var(--text-muted); }
+.prize-usd {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+  display: block;
+}
+/* Add these to the bottom of your App.css */
+
+.balance-usd-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-top: 0.1rem;
+}
+
+.fee-usd {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.claim-usd {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-left: 0.3rem;
+}
+
+.prize-usd {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+  display: block;
+}
+/* Add these to the bottom of your App.css */
+
+.cancel-refund-btn {
+  background: linear-gradient(135deg, hsl(38, 92%, 45%), hsl(38, 92%, 35%));
+  color: white;
+  border: none;
+  padding: 0.7rem;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.cancel-refund-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px hsla(38, 92%, 45%, 0.3);
+}
+
+.cancel-refund-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancel-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 0.65rem;
+  line-height: 1.5;
+}

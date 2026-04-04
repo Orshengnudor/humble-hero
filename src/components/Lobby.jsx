@@ -57,7 +57,7 @@ export default function Lobby({ onJoinMatch }) {
     try {
       const validation = await validateEntryBalance(address, selectedTier);
       if (!validation.hasEnough) {
-        setError(`Insufficient ETH. Need ~${validation.required} ETH (${currentTier.label}), you have ${validation.balance.toFixed(4)} ETH.`);
+        setError(`Insufficient ETH. Need ${validation.required} ETH, you have ${validation.balance.toFixed(4)} ETH.`);
         setCreating(false);
         return;
       }
@@ -93,10 +93,10 @@ export default function Lobby({ onJoinMatch }) {
     setJoining(match.id);
 
     try {
-      const tierKey = match.tier || 'bronze';
+      const tierKey    = match.tier || 'bronze';
       const validation = await validateEntryBalance(address, tierKey);
       if (!validation.hasEnough) {
-        setError(`Need ${validation.required} ETH (${validation.tierLabel}) to join. You have ${validation.balance.toFixed(4)} ETH.`);
+        setError(`Need ${validation.required} ETH to join. You have ${validation.balance.toFixed(4)} ETH.`);
         setJoining(null);
         return;
       }
@@ -112,7 +112,6 @@ export default function Lobby({ onJoinMatch }) {
       }
 
       await joinMatch(match.id, address);
-
       setTxStatus('Joined! ✅');
       setTimeout(() => setTxStatus(''), 2000);
       getEthBalance(address).then(setEthBalance);
@@ -163,14 +162,12 @@ export default function Lobby({ onJoinMatch }) {
         </div>
       </div>
 
-      {error   && <div className="lobby-error"><AlertCircle size={15} /> {error}</div>}
+      {error    && <div className="lobby-error"><AlertCircle size={15} /> {error}</div>}
       {txStatus && <div className="tx-status">{txStatus}</div>}
 
-      {/* Create Match */}
       <div className="create-match-card">
         <h3><Plus size={17} /> Create Match</h3>
 
-        {/* Tier Selection */}
         <div className="option-group">
           <label>Pool Tier — Entry Fee & Points</label>
           <div className="tier-select">
@@ -179,10 +176,9 @@ export default function Lobby({ onJoinMatch }) {
                 key={key}
                 className={`tier-btn ${selectedTier === key ? 'active' : ''}`}
                 onClick={() => setSelectedTier(key)}
-                title={`${tier.points.toLocaleString()} points per game`}
               >
                 <span className="tier-icon">{tier.icon}</span>
-                <span className="tier-sol">{tier.label}</span>
+                <span className="tier-sol">{tier.eth} ETH</span>
                 <span className="tier-points">+{(tier.points / 1000).toFixed(0)}K pts</span>
               </button>
             ))}
@@ -206,12 +202,12 @@ export default function Lobby({ onJoinMatch }) {
           </div>
           <div className="option-group">
             <label>Your Entry</label>
-            <div className="fee-display">{currentTier.eth} ETH ({currentTier.label})</div>
+            <div className="fee-display">{currentTier.eth} ETH</div>
           </div>
           <div className="option-group">
             <label>Prize Pool</label>
             <div className="prize-preview">
-              🏆 ~{(parseFloat(currentTier.eth) * maxPlayers).toFixed(4)} ETH
+              🏆 {(parseFloat(currentTier.eth) * maxPlayers).toFixed(4)} ETH
             </div>
           </div>
           <div className="option-group">
@@ -233,11 +229,10 @@ export default function Lobby({ onJoinMatch }) {
         >
           {creating
             ? (txStatus || 'Creating...')
-            : `Create Match — ${currentTier.eth} ETH (${currentTier.label})`}
+            : `Create Match — ${currentTier.eth} ETH`}
         </button>
       </div>
 
-      {/* Open Matches */}
       <div className="matches-section">
         <h3>Open Matches ({matches.length})</h3>
         {matches.length === 0 ? (
@@ -249,17 +244,18 @@ export default function Lobby({ onJoinMatch }) {
             {matches.map(match => {
               const tier      = getTierByKey(match.tier || 'bronze');
               const remaining = match.max_players - (match.current_players || 1);
+              const pool      = parseFloat(match.prize_pool || 0);
               return (
                 <div key={match.id} className="match-card">
                   <div className="match-info">
                     <div className="match-host">
-                      <span className="tier-badge-sm">{tier.icon} {tier.label}</span>
+                      <span className="tier-badge-sm">{tier.icon} {tier.eth} ETH</span>
                       {' '}Host: {formatWallet(match.host_wallet)}
                     </div>
                     <div className="match-details">
                       <span><Users size={13} /> {match.current_players || 1}/{match.max_players}</span>
                       <span className="match-remaining">{remaining} spot{remaining !== 1 ? 's' : ''} left</span>
-                      <span>🏆 ~{parseFloat(match.prize_pool || 0).toFixed(4)} ETH</span>
+                      <span>🏆 {pool.toFixed(4)} ETH</span>
                       <span>⭐ {tier.points.toLocaleString()} pts</span>
                     </div>
                     <div className="match-progress-bar">

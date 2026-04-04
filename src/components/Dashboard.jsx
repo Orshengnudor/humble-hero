@@ -17,12 +17,12 @@ export default function Dashboard() {
   const { address, isConnected } = useAccount();
   const { data: walletClient }   = useWalletClient();
 
-  const [claimable,   setClaimable]   = useState([]);
-  const [claiming,    setClaiming]    = useState(null);
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState('');
-  const [txStatus,    setTxStatus]    = useState({});
-  const [ethBalance,  setEthBalance]  = useState(0);
+  const [claimable,  setClaimable]  = useState([]);
+  const [claiming,   setClaiming]   = useState(null);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState('');
+  const [txStatus,   setTxStatus]   = useState({});
+  const [ethBalance, setEthBalance] = useState(0);
 
   useEffect(() => {
     if (address) {
@@ -58,18 +58,16 @@ export default function Dashboard() {
         return;
       }
 
-      setTxStatus(prev => ({
-        ...prev,
-        [match.id]: `Claimed! TX: ${result.txId?.slice(0, 10)}...`,
-      }));
-
-      // Calculate what winner received (95% of prize pool)
       const prizePool = parseFloat(match.prize_pool || 0);
       const winnerEth = (prizePool * 0.95).toFixed(6);
 
+      setTxStatus(prev => ({
+        ...prev,
+        [match.id]: `Claimed ${winnerEth} ETH! TX: ${result.txId?.slice(0, 10)}...`,
+      }));
+
       await markPrizeClaimed(match.id, result.txId || '');
       await recordEthWin(address, winnerEth);
-
       getEthBalance(address).then(setEthBalance);
       await loadClaimable();
     } catch (err) {
@@ -91,8 +89,7 @@ export default function Dashboard() {
   }
 
   const totalClaimableEth = claimable.reduce((sum, m) => {
-    const pool = parseFloat(m.prize_pool || 0);
-    return sum + pool * 0.95;
+    return sum + parseFloat(m.prize_pool || 0) * 0.95;
   }, 0);
 
   return (
@@ -112,7 +109,7 @@ export default function Dashboard() {
         </div>
         <div className="eth-balance-large">
           <span>{ethBalance.toFixed(4)}</span>
-          <span className="eth-label">ETH</span>
+          <span className="eth-label"> ETH</span>
         </div>
       </div>
 
@@ -141,7 +138,7 @@ export default function Dashboard() {
         <Star size={16} />
         <div>
           <strong>Points = Future $HERO Airdrop</strong>
-          <p>Every game you play earns points. Winners get 2× points. Points will convert to $HERO tokens when we launch.</p>
+          <p>Every game earns points. Winners get 2× points. Points convert to $HERO when we launch.</p>
         </div>
       </div>
 
@@ -158,17 +155,17 @@ export default function Dashboard() {
         <div className="claim-list">
           <h3 className="claim-section-title">Unclaimed Prizes</h3>
           {claimable.map(match => {
-            const pool    = parseFloat(match.prize_pool || 0);
-            const fee     = pool * 0.05;
-            const payout  = pool * 0.95;
-            const tier    = getTierByKey(match.tier || 'bronze');
+            const pool      = parseFloat(match.prize_pool || 0);
+            const fee       = pool * 0.05;
+            const payout    = pool * 0.95;
+            const tier      = getTierByKey(match.tier || 'bronze');
             const statusMsg = txStatus[match.id];
 
             return (
               <div key={match.id} className="claim-card">
                 <div className="claim-info">
                   <div className="claim-match-id">
-                    {tier.icon} {tier.label} Pool — Match #{match.id.slice(0, 8)}
+                    {tier.icon} {tier.eth} ETH Pool — Match #{match.id.slice(0, 8)}
                     {match.declare_tx && (
                       <a
                         href={`https://basescan.org/tx/${match.declare_tx}`}

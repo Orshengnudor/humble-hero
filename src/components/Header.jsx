@@ -14,7 +14,6 @@ export default function Header({ activeView, setActiveView, prizePool, isDarkMod
     if (!address) return;
     getEthBalance(address).then(setEthBalance);
 
-    // Load user points from leaderboard
     supabase
       .from('leaderboard')
       .select('total_points')
@@ -28,8 +27,13 @@ export default function Header({ activeView, setActiveView, prizePool, isDarkMod
   return (
     <header className="game-header">
       <div className="header-left">
-        <img src="/hero-logo.png" alt="Humble Hero" className="header-logo-img" onError={e => e.target.style.display='none'} />
-        <Gamepad2 size={24} className="header-logo-icon" />
+        <img
+          src="/hero-logo.png"
+          alt="Humble Hero"
+          className="header-logo-img"
+          onError={e => { e.target.style.display = 'none'; }}
+        />
+        <Gamepad2 size={22} className="header-logo-icon" />
         <h1 className="header-title">Humble Hero</h1>
       </div>
 
