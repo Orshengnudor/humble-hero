@@ -115,17 +115,52 @@ export const cancelMatchOnChain = async (walletClient, matchId) => {
   }
 };
 
+// ─── Claim Prize On-chain (Improved with better error messages) ───────────────
 export const claimPrizeOnChain = async (walletClient, matchId) => {
   try {
+    if (!matchId) throw new Error("matchId is required");
+
     const matchIdBytes32 = uuidToBytes32(matchId);
-    const signer         = await walletClientToSigner(walletClient);
-    const contract       = getEscrowContract(signer);
-    const tx             = await contract.claimPrize(matchIdBytes32);
-    const receipt        = await tx.wait();
+
+    console.log("🔄 Claim attempt started for match:", matchId);
+    console.log("   Bytes32:", matchIdBytes32);
+
+    const signer = await walletClientToSigner(walletClient);
+    const contract = getEscrowContract(signer);
+
+    // Gas estimation to catch reverts early
+    try {
+      const gasEstimate = await contract.claimPrize.estimateGas(matchIdBytes32);
+      console.log("   Gas estimate successful:", gasEstimate.toString());
+    } catch (gasErr) {
+      console.error("Gas estimation failed (contract revert):", gasErr);
+      
+      const errorData = gasErr.data || gasErr.error?.data;
+      if (errorData === "0x9cd0e68f") {
+        throw new Error("You are not the winner of this match.");
+      } else if (errorData === "0x8f4eb604") {
+        throw new Error("Prize has already been claimed.");
+      } else if (errorData === "0x5e6f9f0e") {
+        throw new Error("Match is not yet finished.");
+      } else {
+        throw new Error("Contract rejected the claim. You may not be the winner or the prize may have already been claimed.");
+      }
+    }
+
+    const tx = await contract.claimPrize(matchIdBytes32);
+    console.log("   Transaction sent:", tx.hash);
+
+    const receipt = await tx.wait();
+    console.log("   ✅ Claim successful! Block:", receipt.blockNumber);
+
     return { success: true, txId: tx.hash, blockNumber: receipt.blockNumber };
+
   } catch (err) {
-    console.error('claimPrizeOnChain failed:', err);
-    return { success: false, error: err.reason || err.message };
+    console.error("claimPrizeOnChain failed:", err);
+    return { 
+      success: false, 
+      error: err.message || "Failed to claim prize" 
+    };
   }
 };
 
