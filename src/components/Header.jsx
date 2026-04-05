@@ -45,6 +45,7 @@ export default function Header({ activeView, setActiveView, prizePool, isDarkMod
           Lobby
         </button>
         <button
+          data-tour="dashboard-btn"
           className={`nav-btn ${activeView === 'dashboard' ? 'active' : ''}`}
           onClick={() => setActiveView('dashboard')}
         >
