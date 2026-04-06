@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAccount, useWalletClient } from 'wagmi';
 import { ConnectKitButton } from 'connectkit';
 import { getOpenMatches, createMatch, joinMatch, subscribeToLobby } from '../lib/supabase';
@@ -12,7 +12,7 @@ import {
   getTierByKey,
   PLAYER_OPTIONS,
 } from '../lib/blockchain';
-import { Users, Zap, Plus, ArrowRight, Trophy, Shield, Wallet, AlertCircle, Star } from 'lucide-react';
+import { Users, Zap, Plus, ArrowRight, Trophy, Shield, Wallet, AlertCircle, Star, RefreshCw } from 'lucide-react';
 
 export default function Lobby({ onJoinMatch }) {
   const { address, isConnected } = useAccount();
@@ -26,24 +26,44 @@ export default function Lobby({ onJoinMatch }) {
   const [ethBalance,   setEthBalance]   = useState(0);
   const [error,        setError]        = useState('');
   const [txStatus,     setTxStatus]     = useState('');
+  const [refreshing,   setRefreshing]   = useState(false);
 
   const currentTier = getTierByKey(selectedTier);
 
-  const loadMatches = async () => {
+  const loadMatches = useCallback(async () => {
     try {
       const data = await getOpenMatches();
-      setMatches(data);
+      setMatches(data || []);
     } catch (err) {
       console.error('Failed to load matches:', err);
     }
-  };
-
-  useEffect(() => {
-    loadMatches();
-    const channel = subscribeToLobby(() => loadMatches());
-    return () => channel.unsubscribe();
   }, []);
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadMatches();
+    setTimeout(() => setRefreshing(false), 600);
+  };
+
+  // ─── Load matches on mount AND whenever wallet connects ──────────────────
+  useEffect(() => {
+    loadMatches();
+  }, [isConnected, address]); // re-fetch when user connects wallet
+
+  // ─── Real-time subscription + polling fallback ────────────────────────────
+  useEffect(() => {
+    const channel = subscribeToLobby(() => loadMatches());
+
+    // Poll every 5 seconds as a reliable fallback
+    const poll = setInterval(loadMatches, 5000);
+
+    return () => {
+      channel.unsubscribe();
+      clearInterval(poll);
+    };
+  }, [loadMatches]);
+
+  // ─── Update ETH balance when wallet connects ──────────────────────────────
   useEffect(() => {
     if (address) getEthBalance(address).then(setEthBalance);
   }, [address]);
@@ -69,7 +89,10 @@ export default function Lobby({ onJoinMatch }) {
       const result = await createMatchOnChain(walletClient, match.id, maxPlayers, selectedTier);
 
       if (!result.success) {
-        setError(result.error || 'Transaction failed.');
+        // On-chain failed — mark the Supabase record as cancelled so it doesn't show in lobby
+        const { supabase } = await import('../lib/supabase');
+        await supabase.from('matches').update({ status: 'cancelled' }).eq('id', match.id);
+        setError(result.error || 'Transaction failed or was rejected.');
         setCreating(false);
         setTxStatus('');
         return;
@@ -80,7 +103,8 @@ export default function Lobby({ onJoinMatch }) {
       getEthBalance(address).then(setEthBalance);
       onJoinMatch(match);
     } catch (err) {
-      setError(err.message);
+      console.error(err);
+      setError(err.message || 'Failed to create match');
     }
 
     setCreating(false);
@@ -117,7 +141,8 @@ export default function Lobby({ onJoinMatch }) {
       getEthBalance(address).then(setEthBalance);
       onJoinMatch(match);
     } catch (err) {
-      setError(err.message);
+      console.error(err);
+      setError(err.message || 'Failed to join match');
     }
 
     setJoining(null);
@@ -227,14 +252,23 @@ export default function Lobby({ onJoinMatch }) {
           onClick={handleCreate}
           disabled={creating}
         >
-          {creating
-            ? (txStatus || 'Creating...')
-            : `Create Match — ${currentTier.eth} ETH`}
+          {creating ? (txStatus || 'Creating...') : `Create Match — ${currentTier.eth} ETH`}
         </button>
       </div>
 
       <div className="matches-section">
-        <h3>Open Matches ({matches.length})</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+          <h3>Open Matches ({matches.length})</h3>
+          <button
+            onClick={handleRefresh}
+            title="Refresh"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem' }}
+          >
+            <RefreshCw size={15} style={{ animation: refreshing ? 'spin 0.6s linear' : 'none' }} />
+            Refresh
+          </button>
+        </div>
+
         {matches.length === 0 ? (
           <div className="no-matches">
             <p>No open matches. Create one to start playing!</p>
@@ -245,6 +279,7 @@ export default function Lobby({ onJoinMatch }) {
               const tier      = getTierByKey(match.tier || 'bronze');
               const remaining = match.max_players - (match.current_players || 1);
               const pool      = parseFloat(match.prize_pool || 0);
+
               return (
                 <div key={match.id} className="match-card">
                   <div className="match-info">
@@ -270,9 +305,7 @@ export default function Lobby({ onJoinMatch }) {
                     onClick={() => handleJoin(match)}
                     disabled={joining === match.id}
                   >
-                    {joining === match.id
-                      ? 'Joining...'
-                      : <><span>Join</span> <ArrowRight size={13} /></>}
+                    {joining === match.id ? 'Joining...' : <>Join <ArrowRight size={13} /></>}
                   </button>
                 </div>
               );

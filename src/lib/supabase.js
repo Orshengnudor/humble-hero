@@ -1,9 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL     = import.meta.env.VITE_SUPABASE_URL     || 'https://nwxkeswqiorspldaqycl.supabase.co';
+const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL      || 'https://nwxkeswqiorspldaqycl.supabase.co';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
+});
 
 // ─── Realtime ─────────────────────────────────────────────────────────────────
 
@@ -11,15 +17,21 @@ export const subscribeToMatch = (matchId, onUpdate) => {
   return supabase
     .channel(`match:${matchId}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'match_players', filter: `match_id=eq.${matchId}` }, onUpdate)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'matches',       filter: `id=eq.${matchId}`       }, onUpdate)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'matches', filter: `id=eq.${matchId}` }, onUpdate)
     .subscribe();
 };
 
 export const subscribeToLobby = (onUpdate) => {
   return supabase
-    .channel('lobby')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'matches', filter: 'status=eq.waiting' }, onUpdate)
-    .subscribe();
+    .channel(`lobby:${Date.now()}`) // unique channel name prevents stale subscription
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'matches',
+    }, onUpdate)
+    .subscribe((status) => {
+      console.log('Lobby subscription status:', status);
+    });
 };
 
 // ─── Match Operations ─────────────────────────────────────────────────────────
@@ -28,26 +40,23 @@ export const createMatch = async (walletAddress, entryEth, maxPlayers, tier) => 
   const { data, error } = await supabase
     .from('matches')
     .insert({
-      host_wallet:    walletAddress,
-      entry_fee:      entryEth,      // stored as ETH string e.g. "0.0002"
-      max_players:    maxPlayers,
-      prize_pool:     entryEth,
+      host_wallet:     walletAddress,
+      entry_fee:       entryEth,
+      max_players:     maxPlayers,
+      prize_pool:      entryEth,
       current_players: 1,
-      tier:           tier,
-      status:         'waiting',
+      tier:            tier,
+      status:          'waiting',
     })
     .select()
     .single();
 
   if (error) throw error;
-
-  // Auto-join host
   await joinMatch(data.id, walletAddress);
   return data;
 };
 
 export const joinMatch = async (matchId, walletAddress) => {
-  // Prevent duplicate joins
   const { data: existing } = await supabase
     .from('match_players')
     .select('id')
@@ -65,7 +74,6 @@ export const joinMatch = async (matchId, walletAddress) => {
 
   if (error) throw error;
 
-  // Update prize pool and player count
   const { data: match } = await supabase
     .from('matches')
     .select('entry_fee, prize_pool, current_players, max_players')
@@ -83,15 +91,48 @@ export const joinMatch = async (matchId, walletAddress) => {
   return data;
 };
 
+// ─── KEY FIX: getOpenMatches now excludes abandoned/cancelled matches ──────────
 export const getOpenMatches = async () => {
+  // Auto-cancel matches that are stuck waiting for more than 2 hours
+  // This runs silently in the background
+  autoCleanupStuckMatches();
+
   const { data, error } = await supabase
     .from('matches')
     .select('*, match_players(*)')
     .eq('status', 'waiting')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(50);
 
-  if (error) throw error;
-  return data || [];
+  if (error) {
+    console.error('getOpenMatches error:', error);
+    return [];
+  }
+
+  // Filter out matches that have been waiting too long with no activity
+  // (These are likely cancelled without tx approval)
+  const TWO_HOURS = 2 * 60 * 60 * 1000;
+  const now       = Date.now();
+
+  return (data || []).filter(match => {
+    const age = now - new Date(match.created_at).getTime();
+    // Keep if: less than 2 hours old OR has more than 1 player (someone actually joined)
+    return age < TWO_HOURS || (match.current_players || 1) > 1;
+  });
+};
+
+// Auto-cleanup: marks old stuck matches as cancelled in the background
+const autoCleanupStuckMatches = async () => {
+  try {
+    await supabase
+      .from('matches')
+      .update({ status: 'cancelled' })
+      .eq('status', 'waiting')
+      .eq('current_players', 1)
+      .lt('created_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString());
+  } catch (_) {
+    // Silent fail — this is a background cleanup
+  }
 };
 
 export const getMatchPlayers = async (matchId) => {
@@ -162,7 +203,7 @@ export const markPrizeClaimed = async (matchId, txId) => {
 // ─── Points & Leaderboard ─────────────────────────────────────────────────────
 
 export const awardPoints = async (walletAddress, points, won) => {
-  const pointsToAward = won ? points * 2 : points; // winners get 2x
+  const pointsToAward = won ? points * 2 : points;
 
   const { data: existing } = await supabase
     .from('leaderboard')
@@ -174,13 +215,11 @@ export const awardPoints = async (walletAddress, points, won) => {
     await supabase
       .from('leaderboard')
       .update({
-        total_games:  existing.total_games + 1,
-        total_wins:   won ? existing.total_wins + 1 : existing.total_wins,
-        total_score:  existing.total_score + (won ? 1 : 0),
-        total_points: (existing.total_points || 0) + pointsToAward,
-        total_eth_won: won
-          ? (parseFloat(existing.total_eth_won || 0) + 0).toFixed(6) // updated on claim
-          : existing.total_eth_won,
+        total_games:   existing.total_games + 1,
+        total_wins:    won ? existing.total_wins + 1 : existing.total_wins,
+        total_score:   existing.total_score + (won ? 1 : 0),
+        total_points:  (existing.total_points || 0) + pointsToAward,
+        total_eth_won: existing.total_eth_won || '0',
       })
       .eq('wallet_address', walletAddress);
   } else {
@@ -214,6 +253,17 @@ export const recordEthWin = async (walletAddress, ethAmount) => {
       .from('leaderboard')
       .update({ total_eth_won: newTotal })
       .eq('wallet_address', walletAddress);
+  } else {
+    await supabase
+      .from('leaderboard')
+      .insert({
+        wallet_address: walletAddress,
+        total_games:    1,
+        total_wins:     0,
+        total_score:    0,
+        total_points:   0,
+        total_eth_won:  parseFloat(ethAmount).toFixed(6),
+      });
   }
 };
 

@@ -1,17 +1,17 @@
-// Humble Hero - Reaction Game Engine
-// 60-second competitive rounds with anti-exploit protections
+// Humble Hero - Reaction Game Engine (Polished Competitive Version)
 
-const ROUND_DURATION = 60; // 1 minute per round
-const SPAWN_INTERVAL_MIN = 350;
-const SPAWN_INTERVAL_MAX = 1000;
-const TARGET_LIFETIME = 1800;
-const MAX_TARGETS_ON_SCREEN = 6;
-const PERFECT_THRESHOLD = 250;
-const GOOD_THRESHOLD = 500;
+const ROUND_DURATION = 60;
 
-// Anti-exploit: minimum humanly possible reaction time
-const MIN_REACTION_TIME = 80; // ms - anything faster is bot/exploit
-const MAX_CLICKS_PER_SECOND = 8; // rate limiter
+const SPAWN_INTERVAL_MIN = 180;   // Fast but fair
+const SPAWN_INTERVAL_MAX = 520;
+const TARGET_LIFETIME = 1350;     // Quick targets = high pressure
+const MAX_TARGETS_ON_SCREEN = 7;
+
+const PERFECT_THRESHOLD = 240;
+const GOOD_THRESHOLD = 480;
+
+const MIN_REACTION_TIME = 75;     // Anti-bot
+const MAX_CLICKS_PER_SECOND = 11; // Allow skilled players but block macros
 
 const SCORE_PERFECT = 100;
 const SCORE_GOOD = 50;
@@ -19,10 +19,10 @@ const SCORE_OK = 25;
 const SCORE_MISS = -10;
 
 const TARGET_TYPES = [
-  { type: 'normal', color: '#8b5cf6', points: 1, chance: 0.5, size: 48 },
-  { type: 'fast', color: '#f59e0b', points: 2, chance: 0.25, size: 38 },
-  { type: 'bonus', color: '#10b981', points: 3, chance: 0.15, size: 32 },
-  { type: 'trap', color: '#ef4444', points: -2, chance: 0.1, size: 52 },
+  { type: 'normal', color: '#8b5cf6', points: 1, chance: 0.45, size: 48 },
+  { type: 'fast',   color: '#f59e0b', points: 2, chance: 0.27, size: 38 },
+  { type: 'bonus',  color: '#10b981', points: 3, chance: 0.17, size: 34 },
+  { type: 'trap',   color: '#ef4444', points: -2, chance: 0.11, size: 52 },
 ];
 
 export const createGameState = () => ({
@@ -38,7 +38,6 @@ export const createGameState = () => ({
   isActive: false,
   round: 1,
   nextTargetId: 0,
-  // Anti-exploit tracking
   clickTimestamps: [],
   suspiciousActions: 0,
 });
@@ -57,7 +56,7 @@ export const spawnTarget = (gameState, areaWidth, areaHeight) => {
   if (gameState.targets.length >= MAX_TARGETS_ON_SCREEN) return null;
 
   const targetType = getTargetType();
-  const padding = 10;
+  const padding = 12;
   const x = padding + Math.random() * (areaWidth - targetType.size - padding * 2);
   const y = padding + Math.random() * (areaHeight - targetType.size - padding * 2);
 
@@ -67,7 +66,7 @@ export const spawnTarget = (gameState, areaWidth, areaHeight) => {
     y,
     ...targetType,
     spawnedAt: Date.now(),
-    lifetime: TARGET_LIFETIME + Math.random() * 400,
+    lifetime: TARGET_LIFETIME + Math.random() * 250,
   };
 };
 
@@ -78,14 +77,12 @@ export const hitTarget = (gameState, targetId) => {
   const now = Date.now();
   const reactionTime = now - target.spawnedAt;
 
-  // Anti-exploit: check for inhuman reaction time
+  // Anti-exploit checks
   if (reactionTime < MIN_REACTION_TIME) {
     gameState.suspiciousActions++;
-    // Silently ignore suspiciously fast clicks
     return { ...gameState };
   }
 
-  // Anti-exploit: rate limiting
   gameState.clickTimestamps = gameState.clickTimestamps.filter(t => now - t < 1000);
   if (gameState.clickTimestamps.length >= MAX_CLICKS_PER_SECOND) {
     gameState.suspiciousActions++;
@@ -150,8 +147,12 @@ export const removeExpiredTargets = (gameState) => {
   return gameState;
 };
 
-export const getRandomSpawnInterval = () => {
-  return SPAWN_INTERVAL_MIN + Math.random() * (SPAWN_INTERVAL_MAX - SPAWN_INTERVAL_MIN);
+// Dynamic spawn rate — gets faster toward the end
+export const getRandomSpawnInterval = (timeLeft = ROUND_DURATION) => {
+  const urgency = Math.max(0.35, timeLeft / ROUND_DURATION);
+  const min = SPAWN_INTERVAL_MIN * urgency;
+  const max = SPAWN_INTERVAL_MAX * urgency;
+  return min + Math.random() * (max - min);
 };
 
 export const calculateAccuracy = (gameState) => {

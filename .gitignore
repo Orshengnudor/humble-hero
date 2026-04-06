@@ -4,3 +4,6 @@ build/
 .env
 .DS_Store
 .env
+.vscode/
+supabase/.temp/.vscode/
+supabase/.temp/

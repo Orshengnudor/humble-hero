@@ -2,6 +2,15 @@ import { WagmiProvider, createConfig, http } from 'wagmi';
 import { base } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConnectKitProvider, getDefaultConfig } from 'connectkit';
+import { Attribution } from 'ox/erc8021';
+
+// ─────────────────────────────────────────────────────────────
+// Base Builder Code (ERC-8021) - Automatic attribution
+// This appends your Builder Code to EVERY transaction made in the app
+// ─────────────────────────────────────────────────────────────
+const BUILDER_CODE_SUFFIX = Attribution.toDataSuffix({
+  codes: ['bc_qupdabmv'],   // ← Your Builder Code
+});
 
 const config = createConfig(
   getDefaultConfig({
@@ -14,6 +23,9 @@ const config = createConfig(
     appDescription: 'Fast-paced multiplayer reaction game on Base',
     appUrl: 'https://humblehero.xyz',
     appIcon: 'https://humblehero.xyz/logo.png',
+
+    // ← This is the important line for Builder Codes
+    dataSuffix: BUILDER_CODE_SUFFIX,
   })
 );
 
