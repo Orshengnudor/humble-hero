@@ -22,41 +22,77 @@ export const subscribeToMatch = (matchId, onUpdate) => {
 };
 
 export const subscribeToLobby = (onUpdate) => {
-  return supabase
-    .channel(`lobby:${Date.now()}`) // unique channel name prevents stale subscription
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'matches',
-    }, onUpdate)
-    .subscribe((status) => {
-      console.log('Lobby subscription status:', status);
-    });
+  let retryCount = 0;
+  const maxRetries = 5;
+  
+  const createSubscription = () => {
+    const channel = supabase
+      .channel('lobby', {
+        config: {
+          broadcast: { ack: true },
+          presence: { key: 'lobby' },
+        },
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'matches',
+      }, (payload) => {
+        console.log('Lobby realtime update:', payload);
+        onUpdate(payload);
+      })
+      .subscribe((status) => {
+        console.log('Lobby subscription status:', status);
+        
+        if (status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+          console.log('Subscription failed, retrying...');
+          setTimeout(() => {
+            if (retryCount < maxRetries) {
+              retryCount++;
+              createSubscription();
+            }
+          }, 2000);
+        } else if (status === 'SUBSCRIBED') {
+          retryCount = 0;
+        }
+      });
+    
+    return channel;
+  };
+  
+  return createSubscription();
 };
 
 // ─── Match Operations ─────────────────────────────────────────────────────────
 
-export const createMatch = async (walletAddress, entryEth, maxPlayers, tier) => {
+// FIXED: createMatch no longer auto-joins the host
+export const createMatch = async (walletAddress, entryEth, maxPlayers, tier, matchIdOverride) => {
   const { data, error } = await supabase
     .from('matches')
     .insert({
+      id:              matchIdOverride,
       host_wallet:     walletAddress,
       entry_fee:       entryEth,
       max_players:     maxPlayers,
       prize_pool:      entryEth,
-      current_players: 1,
+      current_players: 1,  // Start with 1 (the host)
       tier:            tier,
       status:          'waiting',
+      created_at:      new Date().toISOString(),
     })
     .select()
     .single();
 
   if (error) throw error;
-  await joinMatch(data.id, walletAddress);
+  
+  // Add host as a player without incrementing current_players again
+  await addHostAsPlayer(data.id, walletAddress);
+  
   return data;
 };
 
-export const joinMatch = async (matchId, walletAddress) => {
+// NEW: Add host as player without incrementing count
+const addHostAsPlayer = async (matchId, walletAddress) => {
   const { data: existing } = await supabase
     .from('match_players')
     .select('id')
@@ -73,66 +109,99 @@ export const joinMatch = async (matchId, walletAddress) => {
     .single();
 
   if (error) throw error;
+  return data;
+};
 
-  const { data: match } = await supabase
+// FIXED: joinMatch correctly increments current_players
+export const joinMatch = async (matchId, walletAddress) => {
+  // Check if already joined
+  const { data: existing } = await supabase
+    .from('match_players')
+    .select('id')
+    .eq('match_id', matchId)
+    .eq('wallet_address', walletAddress)
+    .maybeSingle();
+
+  if (existing) return existing;
+
+  // First, get current match state
+  const { data: match, error: matchError } = await supabase
     .from('matches')
     .select('entry_fee, prize_pool, current_players, max_players')
     .eq('id', matchId)
     .single();
 
-  if (match) {
-    const newCount = (match.current_players || 1) + 1;
-    const newPrize = (parseFloat(match.prize_pool) + parseFloat(match.entry_fee)).toFixed(6);
-    const updates  = { prize_pool: newPrize, current_players: newCount };
-    if (newCount >= match.max_players) updates.status = 'starting';
-    await supabase.from('matches').update(updates).eq('id', matchId);
+  if (matchError) throw matchError;
+
+  // Check if match is full
+  if (match.current_players >= match.max_players) {
+    throw new Error('Match is already full');
   }
+
+  // Add the player
+  const { data, error } = await supabase
+    .from('match_players')
+    .insert({ match_id: matchId, wallet_address: walletAddress, score: 0, status: 'joined' })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // Update match with new player count and prize pool
+  const newCount = match.current_players + 1;
+  const newPrize = (parseFloat(match.prize_pool) + parseFloat(match.entry_fee)).toFixed(6);
+  const updates = { 
+    prize_pool: newPrize, 
+    current_players: newCount 
+  };
+  
+  if (newCount >= match.max_players) {
+    updates.status = 'starting';
+  }
+  
+  await supabase.from('matches').update(updates).eq('id', matchId);
 
   return data;
 };
 
-// ─── KEY FIX: getOpenMatches now excludes abandoned/cancelled matches ──────────
 export const getOpenMatches = async () => {
-  // Auto-cancel matches that are stuck waiting for more than 2 hours
-  // This runs silently in the background
-  autoCleanupStuckMatches();
+  try {
+    const { data, error } = await supabase
+      .from('matches')
+      .select('*, match_players(*)')
+      .eq('status', 'waiting')
+      .order('created_at', { ascending: false });
 
-  const { data, error } = await supabase
-    .from('matches')
-    .select('*, match_players(*)')
-    .eq('status', 'waiting')
-    .order('created_at', { ascending: false })
-    .limit(50);
+    if (error) {
+      console.error('getOpenMatches error:', error);
+      return [];
+    }
 
-  if (error) {
-    console.error('getOpenMatches error:', error);
+    // Filter out matches older than 2 hours (stale)
+    const TWO_HOURS = 2 * 60 * 60 * 1000;
+    const now = Date.now();
+    
+    const activeMatches = (data || []).filter(match => {
+      const age = now - new Date(match.created_at).getTime();
+      return age < TWO_HOURS;
+    });
+    
+    console.log('Open matches found:', activeMatches.length);
+    return activeMatches;
+  } catch (err) {
+    console.error('getOpenMatches exception:', err);
     return [];
   }
-
-  // Filter out matches that have been waiting too long with no activity
-  // (These are likely cancelled without tx approval)
-  const TWO_HOURS = 2 * 60 * 60 * 1000;
-  const now       = Date.now();
-
-  return (data || []).filter(match => {
-    const age = now - new Date(match.created_at).getTime();
-    // Keep if: less than 2 hours old OR has more than 1 player (someone actually joined)
-    return age < TWO_HOURS || (match.current_players || 1) > 1;
-  });
 };
 
-// Auto-cleanup: marks old stuck matches as cancelled in the background
-const autoCleanupStuckMatches = async () => {
-  try {
-    await supabase
-      .from('matches')
-      .update({ status: 'cancelled' })
-      .eq('status', 'waiting')
-      .eq('current_players', 1)
-      .lt('created_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString());
-  } catch (_) {
-    // Silent fail — this is a background cleanup
-  }
+export const cancelMatch = async (matchId) => {
+  const { error } = await supabase
+    .from('matches')
+    .update({ status: 'cancelled' })
+    .eq('id', matchId);
+    
+  if (error) throw error;
+  return true;
 };
 
 export const getMatchPlayers = async (matchId) => {
