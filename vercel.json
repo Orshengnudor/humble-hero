@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/declare-winner",
+      "schedule": "* * * * *"     // Runs every 1 minute
+    }
+  ]
+}
