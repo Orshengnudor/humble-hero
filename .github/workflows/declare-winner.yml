@@ -3,7 +3,7 @@ name: Declare Winners Automatically
 on:
   schedule:
     - cron: '* * * * *'        # Runs every 1 minute
-  workflow_dispatch:           # Allows you to trigger manually from GitHub
+  workflow_dispatch:           # Allows manual trigger from GitHub
 
 jobs:
   declare:
