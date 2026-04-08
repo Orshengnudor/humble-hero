@@ -2,8 +2,8 @@ name: Humble Hero - Auto Declare Winners
 
 on:
   schedule:
-    - cron: '*/2 * * * *'   # Every 2 minutes (safe and frequent)
-  workflow_dispatch:        # Allows manual trigger from GitHub UI
+    - cron: '*/2 * * * *'   # Every 2 minutes
+  workflow_dispatch:
 
 jobs:
   declare-winners:
@@ -17,6 +17,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
@@ -28,8 +29,4 @@ jobs:
           ADMIN_PRIVATE_KEY: ${{ secrets.ADMIN_PRIVATE_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-<<<<<<< HEAD
         run: node scripts/declareWinners.js
-=======
-        run: node scripts/declareWinners.js
->>>>>>> a2061c57e6fd827980250be887de6a336421635e
