@@ -28,4 +28,8 @@ jobs:
           ADMIN_PRIVATE_KEY: ${{ secrets.ADMIN_PRIVATE_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+<<<<<<< HEAD
         run: node scripts/declareWinners.js
+=======
+        run: node scripts/declareWinners.js
+>>>>>>> a2061c57e6fd827980250be887de6a336421635e
