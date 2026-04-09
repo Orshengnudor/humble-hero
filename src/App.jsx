@@ -10,33 +10,27 @@ import Leaderboard from './components/Leaderboard';
 import Dashboard from './components/Dashboard';
 import Docs from './components/Docs';
 import OnboardingTour, { shouldShowTour } from './components/OnboardingTour';
-import { updateLeaderboard } from './lib/supabase';
+import { updateLeaderboard, getMyActiveMatch, getMatchPlayers } from './lib/supabase';
 import { getTierByKey } from './lib/blockchain';
 import './App.css';
 
 function GameApp() {
-  const { address } = useAccount();
-  const [activeView,    setActiveView]    = useState('lobby');
-  const [currentMatch,  setCurrentMatch]  = useState(null);
-  const [matchPlayers,  setMatchPlayers]  = useState([]);
-  const [gameResults,   setGameResults]   = useState(null);
-  const [prizePool,     setPrizePool]     = useState(0);
-  const [showTour,      setShowTour]      = useState(false);
-  const [isDarkMode,    setIsDarkMode]    = useState(() => {
-    const saved = localStorage.getItem('hh-theme');
-    return saved !== null ? saved === 'dark' : true;
-  });
+  const { address, isConnected } = useAccount();
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
-  }, []);
+  const [activeView,   setActiveView]   = useState('lobby');
+  const [currentMatch, setCurrentMatch] = useState(null);
+  const [matchPlayers, setMatchPlayers] = useState([]);
+  const [gameResults,  setGameResults]  = useState(null);
+  const [prizePool,    setPrizePool]    = useState(0);
+  const [showTour,     setShowTour]     = useState(false);
+  const [rejoinMatch,  setRejoinMatch]  = useState(null); // banner data
+  const [isDarkMode,   setIsDarkMode]   = useState(() => localStorage.getItem('hh-theme') !== 'light');
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
     localStorage.setItem('hh-theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
-  // Show tour to first-time visitors, only on lobby view
   useEffect(() => {
     if (activeView === 'lobby' && shouldShowTour()) {
       const t = setTimeout(() => setShowTour(true), 800);
@@ -44,9 +38,39 @@ function GameApp() {
     }
   }, [activeView]);
 
+  // Check for active match when wallet connects.
+  // Only show banner if match is still waiting or in_progress AND
+  // the user is not already in matchmaking or game view.
+  useEffect(() => {
+    if (!address || !isConnected) { setRejoinMatch(null); return; }
+    if (activeView === 'matchmaking' || activeView === 'game') return;
+
+    getMyActiveMatch(address).then(m => {
+      if (!m) { setRejoinMatch(null); return; }
+      // Don't show if the match finished or was cancelled
+      if (!['waiting', 'starting', 'in_progress'].includes(m.status)) {
+        setRejoinMatch(null);
+        return;
+      }
+      setRejoinMatch(m);
+    });
+  }, [address, isConnected, activeView]);
+
+  const handleRejoin = async () => {
+    if (!rejoinMatch) return;
+    const players = await getMatchPlayers(rejoinMatch.id);
+    setCurrentMatch(rejoinMatch);
+    setMatchPlayers(players);
+    setPrizePool(rejoinMatch.prize_pool || 0);
+    setRejoinMatch(null);
+    // If game already started, go straight to game view
+    setActiveView(rejoinMatch.status === 'in_progress' ? 'game' : 'matchmaking');
+  };
+
   const handleJoinMatch = (match) => {
     setCurrentMatch(match);
     setPrizePool(match.prize_pool || match.entry_fee);
+    setRejoinMatch(null);
     setActiveView('matchmaking');
   };
 
@@ -61,9 +85,8 @@ function GameApp() {
     setGameResults(results);
     setActiveView('results');
     if (address) {
-      const isWinner   = results.winner === address;
-      const tier       = getTierByKey(currentMatch?.tier || 'bronze');
-      await updateLeaderboard(address, isWinner, results.score, tier.points);
+      const tier = getTierByKey(currentMatch?.tier || 'bronze');
+      await updateLeaderboard(address, results.winner === address, results.score, tier.points);
     }
   };
 
@@ -81,20 +104,19 @@ function GameApp() {
     setActiveView('lobby');
   };
 
-  // Docs page — full-page replacement
   if (activeView === 'docs') {
     return <Docs onBack={() => setActiveView('lobby')} />;
   }
 
   const renderView = () => {
     switch (activeView) {
-      case 'lobby':        return <Lobby onJoinMatch={handleJoinMatch} />;
-      case 'matchmaking':  return <Matchmaking match={currentMatch} onGameStart={handleGameStart} onLeave={handleLeaveMatch} />;
-      case 'game':         return <GamePlay match={currentMatch} players={matchPlayers} onGameEnd={handleGameEnd} />;
-      case 'results':      return <GameResults results={gameResults} onBackToLobby={handleBackToLobby} />;
-      case 'leaderboard':  return <Leaderboard />;
-      case 'dashboard':    return <Dashboard />;
-      default:             return <Lobby onJoinMatch={handleJoinMatch} />;
+      case 'lobby':       return <Lobby onJoinMatch={handleJoinMatch} />;
+      case 'matchmaking': return <Matchmaking match={currentMatch} onGameStart={handleGameStart} onLeave={handleLeaveMatch} />;
+      case 'game':        return <GamePlay match={currentMatch} players={matchPlayers} onGameEnd={handleGameEnd} />;
+      case 'results':     return <GameResults results={gameResults} onBackToLobby={handleBackToLobby} />;
+      case 'leaderboard': return <Leaderboard />;
+      case 'dashboard':   return <Dashboard />;
+      default:            return <Lobby onJoinMatch={handleJoinMatch} />;
     }
   };
 
@@ -105,43 +127,46 @@ function GameApp() {
         setActiveView={setActiveView}
         prizePool={prizePool}
         isDarkMode={isDarkMode}
-        toggleDarkMode={() => setIsDarkMode(prev => !prev)}
+        toggleDarkMode={() => setIsDarkMode(p => !p)}
       />
 
-      <main className="app-main">
-        {renderView()}
-      </main>
+      {/* Rejoin banner — only shown when user has an active unfinished match */}
+      {rejoinMatch && activeView !== 'matchmaking' && activeView !== 'game' && (
+        <div className="rejoin-banner">
+          <span>
+            {rejoinMatch.status === 'in_progress'
+              ? 'A game is in progress that you are part of!'
+              : `Your match is waiting — ${rejoinMatch.max_players - (rejoinMatch.current_players || 1)} spot${rejoinMatch.max_players - (rejoinMatch.current_players || 1) !== 1 ? 's' : ''} left`}
+          </span>
+          <button onClick={handleRejoin} className="rejoin-btn">
+            {rejoinMatch.status === 'in_progress' ? 'Rejoin Game' : 'Continue to Match'}
+          </button>
+          <button onClick={() => setRejoinMatch(null)} className="rejoin-dismiss">✕</button>
+        </div>
+      )}
 
-      {/* Footer */}
+      <main className="app-main">{renderView()}</main>
+
       <footer className="app-footer">
         <div className="footer-links">
           <button onClick={() => setActiveView('docs')}>Docs</button>
-          <button onClick={() => { setActiveView('docs'); }}>How to Play</button>
+          <button onClick={() => setActiveView('docs')}>How to Play</button>
           <button onClick={() => setActiveView('docs')}>Terms</button>
           <button onClick={() => setActiveView('docs')}>Privacy</button>
           <a href="mailto:humblehero89@gmail.com">Contact</a>
-          <a href="https://x.com/1humblehero" target="_blank" rel="noopener noreferrer">X</a>
+          <a href="https://x.com/1humblehero" target="_blank" rel="noopener noreferrer">X / Twitter</a>
         </div>
         <div className="footer-copy">
           © {new Date().getFullYear()} Humble Hero • Built on Base •{' '}
-          <button className="footer-tour-btn" onClick={() => setShowTour(true)}>
-            Replay Tutorial
-          </button>
+          <button className="footer-tour-btn" onClick={() => setShowTour(true)}>Replay Tutorial</button>
         </div>
       </footer>
 
-      {/* Onboarding Tour */}
-      {showTour && activeView === 'lobby' && (
-        <OnboardingTour onDone={() => setShowTour(false)} />
-      )}
+      {showTour && activeView === 'lobby' && <OnboardingTour onDone={() => setShowTour(false)} />}
     </div>
   );
 }
 
 export default function App() {
-  return (
-    <WalletProvider>
-      <GameApp />
-    </WalletProvider>
-  );
+  return <WalletProvider><GameApp /></WalletProvider>;
 }
