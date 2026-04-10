@@ -2010,3 +2010,42 @@
   font-size: 0.9rem;
   padding: 0 0.25rem;
 }
+
+
+
+
+
+/* Add these to the bottom of your App.css */
+
+/* Row divider lines */
+.lb-row {
+  border-bottom: 1px solid var(--border);
+}
+
+.lb-row:last-child {
+  border-bottom: none;
+}
+
+/* Header also gets a stronger bottom border */
+.lb-header-row {
+  border-bottom: 2px solid var(--border);
+}
+
+/* Mock entry rows — slightly dimmed so real entries stand out */
+.lb-row-mock {
+  opacity: 0.72;
+}
+
+/* Small badge next to mock wallet addresses */
+.lb-mock-badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.62rem;
+  background: hsla(265, 60%, 50%, 0.15);
+  color: var(--text-muted);
+  border: 1px solid hsla(265, 60%, 50%, 0.2);
+  border-radius: 4px;
+  padding: 0 5px;
+  vertical-align: middle;
+  letter-spacing: 0.02em;
+}
