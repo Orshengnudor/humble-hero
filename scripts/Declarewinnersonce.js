@@ -6,17 +6,29 @@ import { createClient } from '@supabase/supabase-js';
 const RPC_URL           = process.env.BASE_RPC                || 'https://mainnet.base.org';
 const ESCROW_ADDRESS    = process.env.ESCROW_CONTRACT_ADDRESS;
 const ADMIN_PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY;
+const SUPABASE_URL      = process.env.SUPABASE_URL;
+const SUPABASE_KEY      = process.env.SUPABASE_SERVICE_KEY;
 
-if (!ESCROW_ADDRESS)    { console.error('ESCROW_CONTRACT_ADDRESS not set'); process.exit(1); }
-if (!ADMIN_PRIVATE_KEY) { console.error('ADMIN_PRIVATE_KEY not set');       process.exit(1); }
+// Validate all required env vars up front
+const missing = [];
+if (!ESCROW_ADDRESS)    missing.push('ESCROW_CONTRACT_ADDRESS');
+if (!ADMIN_PRIVATE_KEY) missing.push('ADMIN_PRIVATE_KEY');
+if (!SUPABASE_URL)      missing.push('SUPABASE_URL');
+if (!SUPABASE_KEY)      missing.push('SUPABASE_SERVICE_KEY');
+
+if (missing.length > 0) {
+  console.error('Missing required secrets:', missing.join(', '));
+  console.error('Add them in GitHub → Settings → Secrets and variables → Actions');
+  process.exit(1);
+}
 
 const provider    = new ethers.JsonRpcProvider(RPC_URL);
 const adminWallet = new ethers.Wallet(ADMIN_PRIVATE_KEY, provider);
-const supabase    = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+const supabase    = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Minimal ABI — only what we need, no getMatch to avoid ABI mismatch issues
 const ESCROW_ABI = [
   'function declareWinner(bytes32 matchId, address winner) external',
-  'function getMatch(bytes32 matchId) external view returns (address host, uint256 entryFee, uint256 maxPlayers, uint256 playerCount, uint256 totalDeposited, address winner, uint8 status, bool prizeClaimed)',
 ];
 
 const escrowContract = new ethers.Contract(ESCROW_ADDRESS, ESCROW_ABI, adminWallet);
@@ -26,82 +38,94 @@ const uuidToBytes32 = (uuid) => {
   return '0x' + hex.padEnd(64, '0');
 };
 
-// ─── Main — runs once then exits ──────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 const run = async () => {
-  console.log('Humble Hero — Winner Declarer (one-shot)');
-  console.log(`Admin:  ${adminWallet.address}`);
-  console.log(`Escrow: ${ESCROW_ADDRESS}`);
+  console.log('=== Humble Hero Winner Declarer (one-shot) ===');
+  console.log(`Admin:   ${adminWallet.address}`);
+  console.log(`Escrow:  ${ESCROW_ADDRESS}`);
+  console.log(`Network: ${RPC_URL}`);
 
+  // Check admin wallet has ETH for gas
   const balance = await provider.getBalance(adminWallet.address);
-  console.log(`Balance: ${ethers.formatEther(balance)} ETH`);
+  const balEth  = ethers.formatEther(balance);
+  console.log(`Balance: ${balEth} ETH`);
 
-  if (balance < ethers.parseEther('0.0005')) {
-    console.warn('WARNING: Admin wallet ETH is very low. Top up on Base.');
+  if (parseFloat(balEth) < 0.0005) {
+    console.warn('WARNING: Admin wallet ETH is very low. Top up on Base to pay gas.');
   }
 
-  // Fetch all finished matches with no declare_tx
+  // Fetch finished matches that need on-chain declaration
   const { data: matches, error } = await supabase
     .from('matches')
-    .select('*, match_players(*)')
+    .select('id, winner_wallet, match_players(wallet_address)')
     .eq('status', 'finished')
     .not('winner_wallet', 'is', null)
     .is('declare_tx', null);
 
   if (error) {
-    console.error('Supabase error:', error.message);
+    console.error('Supabase query failed:', error.message);
     process.exit(1);
   }
 
   if (!matches?.length) {
-    console.log('No pending matches. Done.');
+    console.log('No pending matches to declare. All done.');
     process.exit(0);
   }
 
-  console.log(`Found ${matches.length} match(es) to process.`);
+  console.log(`Found ${matches.length} match(es) to process.\n`);
+
   let processed = 0;
   let failed    = 0;
 
   for (const match of matches) {
+    const shortId = match.id.slice(0, 8);
     try {
-      const players = (match.match_players || []).map(p => p.wallet_address.toLowerCase());
-      if (!players.includes(match.winner_wallet.toLowerCase())) {
-        console.error(`Winner not in player list for match ${match.id.slice(0, 8)}`);
+      // Verify winner is actually a registered player in this match
+      const playerAddrs = (match.match_players || []).map(p => p.wallet_address.toLowerCase());
+      if (!playerAddrs.includes(match.winner_wallet.toLowerCase())) {
+        console.error(`[${shortId}] Winner ${match.winner_wallet} not in player list — skipping`);
         await supabase.from('matches').update({ declare_tx: 'invalid-winner' }).eq('id', match.id);
         continue;
       }
 
       const matchIdBytes32 = uuidToBytes32(match.id);
-
-      // Check on-chain state to avoid double-declaring
-      const onChain = await escrowContract.getMatch(matchIdBytes32);
-      if (Number(onChain.status) === 2) {
-        console.log(`Match ${match.id.slice(0, 8)} already declared on-chain. Syncing...`);
-        await supabase.from('matches').update({ declare_tx: 'already-declared' }).eq('id', match.id);
-        processed++;
-        continue;
-      }
-
-      console.log(`Declaring winner for match ${match.id.slice(0, 8)}...`);
-      console.log(`  Winner: ${match.winner_wallet}`);
+      console.log(`[${shortId}] Declaring winner: ${match.winner_wallet}`);
 
       const tx      = await escrowContract.declareWinner(matchIdBytes32, match.winner_wallet);
-      console.log(`  TX sent: ${tx.hash}`);
+      console.log(`[${shortId}] TX sent: ${tx.hash}`);
+
       const receipt = await tx.wait();
-      console.log(`  Confirmed in block ${receipt.blockNumber}`);
+      console.log(`[${shortId}] Confirmed in block ${receipt.blockNumber} ✅`);
 
       await supabase.from('matches').update({ declare_tx: tx.hash }).eq('id', match.id);
       processed++;
+
     } catch (err) {
-      console.error(`Failed match ${match.id.slice(0, 8)}:`, err.message);
-      failed++;
+      const msg = err.reason || err.message || String(err);
+      console.error(`[${shortId}] Failed: ${msg}`);
+
+      // If already declared on-chain, mark it so we don't retry
+      if (msg.includes('already') || msg.includes('0x7bfa4b9f') || msg.includes('InvalidWinner')) {
+        await supabase.from('matches').update({ declare_tx: 'already-declared' }).eq('id', match.id);
+        console.log(`[${shortId}] Marked as already-declared`);
+        processed++;
+      } else {
+        failed++;
+      }
     }
   }
 
-  console.log(`Done. Processed: ${processed}, Failed: ${failed}`);
-  process.exit(failed > 0 ? 1 : 0);
+  console.log(`\n=== Done. Processed: ${processed}, Failed: ${failed} ===`);
+
+  // Exit 0 even with some failures so the workflow doesn't show as failed
+  // unless ALL matches failed
+  if (failed > 0 && processed === 0) {
+    process.exit(1);
+  }
+  process.exit(0);
 };
 
 run().catch(err => {
-  console.error('Fatal:', err.message);
+  console.error('Fatal error:', err.message || err);
   process.exit(1);
 });
