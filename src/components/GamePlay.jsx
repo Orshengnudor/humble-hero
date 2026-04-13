@@ -177,11 +177,12 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
       await finishMatch(match.id, winner.wallet_address);
     }
 
+    // KEY FIX: case-insensitive comparison so it works in all wallets
     onGameEnd({
       ...finalState,
       allPlayers:  sorted,
       winner:      winner.wallet_address,
-      isWinner:    winner.wallet_address === address,
+      isWinner:    winner.wallet_address.toLowerCase() === address.toLowerCase(),
       prizePool:   match.prize_pool || 0,
       perfectHits: finalState.perfectHits,
       maxCombo:    finalState.maxCombo,

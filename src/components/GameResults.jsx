@@ -4,17 +4,27 @@ import { formatWallet } from '../lib/blockchain';
 import WinShareCard from './WinShareCard';
 
 export default function GameResults({ results, match, onBackToLobby }) {
-  const { allPlayers, winner, isWinner, prizePool, score, hits, perfectHits, maxCombo } = results;
   const [showCard, setShowCard] = useState(false);
+
+  const {
+    allPlayers, winner, isWinner,
+    prizePool, score, hits, perfectHits, maxCombo,
+  } = results;
 
   const pool   = parseFloat(prizePool || 0);
   const payout = (pool * 0.95).toFixed(4);
 
+  // isWinner comes from GamePlay where it is set as:
+  // winner.wallet_address.toLowerCase() === address.toLowerCase()
+  // So it is already case-insensitive. If somehow it is undefined, default false.
+  const youWon = isWinner === true;
+
   return (
     <div className="game-results">
       <div className="results-card">
-        <div className={`winner-banner ${isWinner ? 'you-won' : ''}`}>
-          {isWinner ? (
+
+        <div className={`winner-banner ${youWon ? 'you-won' : ''}`}>
+          {youWon ? (
             <>
               <Trophy size={48} className="trophy-icon" />
               <h1>YOU WIN!</h1>
@@ -22,12 +32,7 @@ export default function GameResults({ results, match, onBackToLobby }) {
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
                 Go to Dashboard to claim your prize
               </p>
-
-              {/* Share Win button — only shown to winner */}
-              <button
-                className="share-win-btn"
-                onClick={() => setShowCard(true)}
-              >
+              <button className="share-win-btn" onClick={() => setShowCard(true)}>
                 🎉 Share Your Win
               </button>
             </>
@@ -55,11 +60,11 @@ export default function GameResults({ results, match, onBackToLobby }) {
             </div>
             <div className="stat-card">
               <Star size={18} />
-              <span className="stat-val">{perfectHits}</span>
+              <span className="stat-val">{perfectHits ?? 0}</span>
               <span className="stat-lbl">Perfect</span>
             </div>
             <div className="stat-card">
-              <span className="stat-val">x{maxCombo}</span>
+              <span className="stat-val">x{maxCombo ?? 0}</span>
               <span className="stat-lbl">Best Combo</span>
             </div>
           </div>
@@ -70,7 +75,7 @@ export default function GameResults({ results, match, onBackToLobby }) {
           {(allPlayers || []).map((p, i) => (
             <div
               key={p.id || i}
-              className={`rank-row ${p.wallet_address === winner ? 'is-winner' : ''}`}
+              className={`rank-row ${p.wallet_address?.toLowerCase() === winner?.toLowerCase() ? 'is-winner' : ''}`}
             >
               <span className="rank-pos">
                 {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
@@ -87,8 +92,7 @@ export default function GameResults({ results, match, onBackToLobby }) {
         </button>
       </div>
 
-      {/* Win share card modal */}
-      {showCard && isWinner && (
+      {showCard && youWon && (
         <WinShareCard
           results={{ ...results, prizePool: pool }}
           match={match}

@@ -2402,3 +2402,15 @@
   .wsc-prize-amount { font-size: 1.6rem; }
   .wsc-stat-val    { font-size: 0.72rem; }
 }
+
+
+/* Add to bottom of App.css — mobile hint below win card buttons */
+
+.wsc-mobile-hint {
+  font-size:   0.72rem;
+  color:       rgba(255, 255, 255, 0.35);
+  text-align:  center;
+  max-width:   300px;
+  line-height: 1.5;
+  margin-top:  -0.25rem;
+}
