@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { Trophy, Medal, Star, ArrowLeft, Zap, Target } from 'lucide-react';
 import { formatWallet } from '../lib/blockchain';
+import WinShareCard from './WinShareCard';
 
-export default function GameResults({ results, onBackToLobby }) {
+export default function GameResults({ results, match, onBackToLobby }) {
   const { allPlayers, winner, isWinner, prizePool, score, hits, perfectHits, maxCombo } = results;
+  const [showCard, setShowCard] = useState(false);
 
   const pool   = parseFloat(prizePool || 0);
   const payout = (pool * 0.95).toFixed(4);
@@ -19,6 +22,14 @@ export default function GameResults({ results, onBackToLobby }) {
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
                 Go to Dashboard to claim your prize
               </p>
+
+              {/* Share Win button — only shown to winner */}
+              <button
+                className="share-win-btn"
+                onClick={() => setShowCard(true)}
+              >
+                🎉 Share Your Win
+              </button>
             </>
           ) : (
             <>
@@ -75,6 +86,15 @@ export default function GameResults({ results, onBackToLobby }) {
           <ArrowLeft size={16} /> Back to Lobby
         </button>
       </div>
+
+      {/* Win share card modal */}
+      {showCard && isWinner && (
+        <WinShareCard
+          results={{ ...results, prizePool: pool }}
+          match={match}
+          onClose={() => setShowCard(false)}
+        />
+      )}
     </div>
   );
 }

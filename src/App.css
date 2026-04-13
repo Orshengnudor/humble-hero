@@ -2049,3 +2049,356 @@
   vertical-align: middle;
   letter-spacing: 0.02em;
 }
+
+
+
+/* ═══ WIN SHARE CARD — Add to bottom of App.css ═══ */
+
+/* Share win button in GameResults */
+.share-win-btn {
+  margin-top: 1rem;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #1a0a00;
+  border: none;
+  border-radius: 12px;
+  padding: 0.65rem 1.4rem;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.4);
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.share-win-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(245, 158, 11, 0.5);
+}
+
+/* ─── Overlay ─────────────────────────────────────────────────────────────── */
+.wsc-overlay {
+  position:        fixed;
+  inset:           0;
+  background:      rgba(0, 0, 0, 0.82);
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  z-index:         9999;
+  padding:         1rem;
+  backdrop-filter: blur(6px);
+  animation:       wscFadeIn 0.25s ease;
+}
+
+@keyframes wscFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ─── Modal wrapper ───────────────────────────────────────────────────────── */
+.wsc-modal {
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  gap:            1rem;
+  animation:      wscSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-width:      400px;
+  width:          100%;
+}
+
+@keyframes wscSlideUp {
+  from { transform: translateY(40px) scale(0.95); opacity: 0; }
+  to   { transform: translateY(0)    scale(1);    opacity: 1; }
+}
+
+/* ─── The shareable card ─────────────────────────────────────────────────── */
+.wsc-card {
+  position:      relative;
+  width:         100%;
+  background:    #0b0b1a;
+  border-radius: 20px;
+  border:        1px solid rgba(245, 158, 11, 0.3);
+  padding:       2rem 1.75rem 1.5rem;
+  overflow:      hidden;
+  display:       flex;
+  flex-direction: column;
+  align-items:   center;
+  gap:           0.85rem;
+  box-shadow:
+    0 0 0 1px rgba(245, 158, 11, 0.15),
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Background grid texture */
+.wsc-bg-grid {
+  position:        absolute;
+  inset:           0;
+  background-image:
+    linear-gradient(rgba(245, 158, 11, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(245, 158, 11, 0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events:  none;
+}
+
+/* Glow blobs */
+.wsc-glow {
+  position:      absolute;
+  border-radius: 50%;
+  filter:        blur(60px);
+  pointer-events: none;
+}
+.wsc-glow-1 {
+  width:      220px;
+  height:     220px;
+  background: rgba(245, 158, 11, 0.12);
+  top:        -60px;
+  right:      -60px;
+}
+.wsc-glow-2 {
+  width:      180px;
+  height:     180px;
+  background: rgba(139, 92, 246, 0.1);
+  bottom:     -40px;
+  left:       -40px;
+}
+
+/* Brand header */
+.wsc-brand {
+  display:     flex;
+  align-items: center;
+  gap:         0.4rem;
+  z-index:     1;
+}
+.wsc-bolt {
+  font-size:   1.1rem;
+  filter:      drop-shadow(0 0 8px rgba(245, 158, 11, 0.8));
+  animation:   wscPulse 2s ease-in-out infinite;
+}
+@keyframes wscPulse {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.8)); }
+  50%       { filter: drop-shadow(0 0 16px rgba(245, 158, 11, 1));  }
+}
+.wsc-brand-name {
+  font-family:     'Space Mono', 'Courier New', monospace;
+  font-size:       0.68rem;
+  font-weight:     700;
+  letter-spacing:  0.22em;
+  color:           rgba(245, 158, 11, 0.7);
+  text-transform:  uppercase;
+}
+
+/* Trophy ring */
+.wsc-trophy-ring {
+  width:           72px;
+  height:          72px;
+  border-radius:   50%;
+  background:      radial-gradient(circle, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.03));
+  border:          2px solid rgba(245, 158, 11, 0.4);
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  z-index:         1;
+  box-shadow:      0 0 24px rgba(245, 158, 11, 0.2);
+  animation:       wscRingSpin 8s linear infinite;
+  position:        relative;
+}
+@keyframes wscRingSpin {
+  0%   { box-shadow: 0 0 24px rgba(245,158,11,0.2), 0 0 0 0 rgba(245,158,11,0.1); }
+  50%  { box-shadow: 0 0 40px rgba(245,158,11,0.4), 0 0 0 8px rgba(245,158,11,0); }
+  100% { box-shadow: 0 0 24px rgba(245,158,11,0.2), 0 0 0 0 rgba(245,158,11,0.1); }
+}
+.wsc-trophy-icon { font-size: 2rem; z-index: 1; }
+
+/* Headline */
+.wsc-headline {
+  font-family:    'Space Mono', 'Courier New', monospace;
+  font-size:      2.4rem;
+  font-weight:    700;
+  letter-spacing: 0.12em;
+  background:     linear-gradient(135deg, #fbbf24, #f59e0b, #d97706);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  z-index:        1;
+  line-height:    1;
+  text-shadow:    none;
+}
+.wsc-subhead {
+  font-size:      0.72rem;
+  color:          rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  z-index:        1;
+  margin-top:     -0.5rem;
+}
+
+/* Prize box */
+.wsc-prize-box {
+  background:    linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.05));
+  border:        1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 14px;
+  padding:       0.85rem 1.75rem;
+  text-align:    center;
+  z-index:       1;
+  width:         100%;
+}
+.wsc-prize-label {
+  font-size:      0.6rem;
+  letter-spacing: 0.2em;
+  color:          rgba(245, 158, 11, 0.5);
+  text-transform: uppercase;
+  margin-bottom:  0.2rem;
+}
+.wsc-prize-amount {
+  font-family:  'Space Mono', 'Courier New', monospace;
+  font-size:    2rem;
+  font-weight:  700;
+  color:        #fbbf24;
+  line-height:  1;
+  text-shadow:  0 0 20px rgba(251, 191, 36, 0.4);
+}
+
+/* Stats row */
+.wsc-stats {
+  display:        flex;
+  align-items:    center;
+  gap:            0;
+  width:          100%;
+  background:     rgba(255, 255, 255, 0.03);
+  border:         1px solid rgba(255, 255, 255, 0.06);
+  border-radius:  12px;
+  padding:        0.75rem 0;
+  z-index:        1;
+}
+.wsc-stat {
+  flex:           1;
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  gap:            0.2rem;
+}
+.wsc-stat-val {
+  font-family:  'Space Mono', 'Courier New', monospace;
+  font-size:    0.82rem;
+  font-weight:  700;
+  color:        rgba(255, 255, 255, 0.9);
+}
+.wsc-stat-lbl {
+  font-size:      0.54rem;
+  letter-spacing: 0.12em;
+  color:          rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+}
+.wsc-stat-divider {
+  width:      1px;
+  height:     32px;
+  background: rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+/* Wallet */
+.wsc-wallet-row {
+  display:     flex;
+  align-items: center;
+  gap:         0.5rem;
+  z-index:     1;
+}
+.wsc-wallet-icon {
+  color:     rgba(139, 92, 246, 0.7);
+  font-size: 0.85rem;
+}
+.wsc-wallet-addr {
+  font-family:    'Space Mono', 'Courier New', monospace;
+  font-size:      0.78rem;
+  color:          rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.04em;
+}
+
+/* Card footer */
+.wsc-footer {
+  display:         flex;
+  justify-content: space-between;
+  align-items:     center;
+  width:           100%;
+  padding-top:     0.5rem;
+  border-top:      1px solid rgba(255, 255, 255, 0.06);
+  z-index:         1;
+}
+.wsc-footer-url {
+  font-family:    'Space Mono', 'Courier New', monospace;
+  font-size:      0.65rem;
+  color:          rgba(245, 158, 11, 0.5);
+  letter-spacing: 0.06em;
+}
+.wsc-footer-tag {
+  font-size:      0.6rem;
+  color:          rgba(255, 255, 255, 0.2);
+  letter-spacing: 0.08em;
+}
+
+/* ─── Action buttons ─────────────────────────────────────────────────────── */
+.wsc-actions {
+  display: flex;
+  gap:     0.6rem;
+  width:   100%;
+}
+.wsc-btn {
+  flex:          1;
+  padding:       0.65rem 0.5rem;
+  border-radius: 10px;
+  border:        1px solid transparent;
+  font-size:     0.82rem;
+  font-weight:   700;
+  cursor:        pointer;
+  transition:    all 0.2s;
+  letter-spacing: 0.02em;
+}
+.wsc-btn-download {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+}
+.wsc-btn-download:hover {
+  background:   rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.wsc-btn-tweet {
+  background:  #000;
+  border-color: rgba(255,255,255,0.15);
+  color:        #fff;
+  font-weight:  800;
+}
+.wsc-btn-tweet:hover {
+  background:   #111;
+  border-color: rgba(255,255,255,0.3);
+}
+.wsc-btn-share {
+  background:   linear-gradient(135deg, #f59e0b, #d97706);
+  color:        #1a0a00;
+  font-weight:  800;
+}
+.wsc-btn-share:hover {
+  transform:  translateY(-1px);
+  box-shadow: 0 4px 16px rgba(245,158,11,0.4);
+}
+
+/* Close */
+.wsc-close {
+  background:  none;
+  border:      none;
+  color:       rgba(255, 255, 255, 0.3);
+  font-size:   0.78rem;
+  cursor:      pointer;
+  transition:  color 0.2s;
+  padding:     0.25rem 0.5rem;
+}
+.wsc-close:hover { color: rgba(255, 255, 255, 0.7); }
+
+/* Mobile */
+@media (max-width: 440px) {
+  .wsc-headline    { font-size: 2rem; }
+  .wsc-prize-amount { font-size: 1.6rem; }
+  .wsc-stat-val    { font-size: 0.72rem; }
+}

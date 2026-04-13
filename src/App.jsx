@@ -113,7 +113,14 @@ function GameApp() {
       case 'lobby':       return <Lobby onJoinMatch={handleJoinMatch} />;
       case 'matchmaking': return <Matchmaking match={currentMatch} onGameStart={handleGameStart} onLeave={handleLeaveMatch} />;
       case 'game':        return <GamePlay match={currentMatch} players={matchPlayers} onGameEnd={handleGameEnd} />;
-      case 'results':     return <GameResults results={gameResults} onBackToLobby={handleBackToLobby} />;
+      case 'results':
+        return (
+          <GameResults
+            results={gameResults}
+            match={currentMatch}
+            onBackToLobby={handleBackToLobby}
+          />
+        );
       case 'leaderboard': return <Leaderboard />;
       case 'dashboard':   return <Dashboard />;
       default:            return <Lobby onJoinMatch={handleJoinMatch} />;
