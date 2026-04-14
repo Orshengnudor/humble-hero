@@ -2414,3 +2414,60 @@
   line-height: 1.5;
   margin-top:  -0.25rem;
 }
+
+
+/* Add these to the bottom of App.css */
+
+/* Rendering spinner */
+.wsc-rendering {
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  gap:            0.75rem;
+  padding:        2rem;
+  color:          rgba(255,255,255,0.5);
+  font-size:      0.85rem;
+}
+
+.wsc-spinner {
+  width:        36px;
+  height:       36px;
+  border:       3px solid rgba(245,158,11,0.15);
+  border-top:   3px solid #f59e0b;
+  border-radius: 50%;
+  animation:    wscSpin 0.8s linear infinite;
+}
+
+@keyframes wscSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Image phase */
+.wsc-image-phase {
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  gap:            0.75rem;
+  width:          100%;
+}
+
+.wsc-rendered-img {
+  width:         100%;
+  border-radius: 16px;
+  display:       block;
+  /* Prevent image dragging on mobile which interferes with long-press */
+  -webkit-user-drag: none;
+  user-select:       none;
+  -webkit-touch-callout: default; /* IMPORTANT: allows long-press save on iOS */
+}
+
+.wsc-save-hint {
+  background:    rgba(245,158,11,0.1);
+  border:        1px solid rgba(245,158,11,0.25);
+  border-radius: 10px;
+  padding:       0.6rem 1rem;
+  font-size:     0.78rem;
+  color:         rgba(245,158,11,0.9);
+  text-align:    center;
+  width:         100%;
+}
