@@ -1,49 +1,39 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAccount, useWalletClient } from 'wagmi';
 import { ConnectKitButton } from 'connectkit';
-import { getOpenMatches, createMatch, joinMatch, subscribeToLobby, cancelMatch } from '../lib/supabase';
+import { getOpenMatches, createMatch, joinMatch, subscribeToLobby, supabase } from '../lib/supabase';
 import {
-  formatWallet,
-  getEthBalance,
-  validateEntryBalance,
-  createMatchOnChain,
-  joinMatchOnChain,
-  ENTRY_TIERS,
-  getTierByKey,
-  PLAYER_OPTIONS,
+  formatWallet, getEthBalance, validateEntryBalance,
+  createMatchOnChain, joinMatchOnChain, ENTRY_TIERS, getTierByKey, PLAYER_OPTIONS,
 } from '../lib/blockchain';
-import { Users, Zap, Plus, ArrowRight, Trophy, Shield, Wallet, AlertCircle, Star, RefreshCw, XCircle } from 'lucide-react';
+import { Users, Zap, Plus, ArrowRight, Shield, Wallet, AlertCircle, Star, RefreshCw, XCircle } from 'lucide-react';
 
 export default function Lobby({ onJoinMatch }) {
   const { address, isConnected } = useAccount();
-  const { data: walletClient } = useWalletClient();
+  const { data: walletClient }   = useWalletClient();
 
-  const [matches, setMatches] = useState([]);
-  const [creating, setCreating] = useState(false);
-  const [joining, setJoining] = useState(null);
-  const [cancelling, setCancelling] = useState(null);
-  const [maxPlayers, setMaxPlayers] = useState(4);
+  const [matches,      setMatches]      = useState([]);
+  const [creating,     setCreating]     = useState(false);
+  const [joining,      setJoining]      = useState(null);
+  const [cancelling,   setCancelling]   = useState(null);
+  const [maxPlayers,   setMaxPlayers]   = useState(2);
   const [selectedTier, setSelectedTier] = useState('bronze');
-  const [ethBalance, setEthBalance] = useState(0);
-  const [error, setError] = useState('');
-  const [txStatus, setTxStatus] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
-  
-  const subscriptionRef = useRef(null);
-  const pollIntervalRef = useRef(null);
+  const [ethBalance,   setEthBalance]   = useState(0);
+  const [error,        setError]        = useState('');
+  const [txStatus,     setTxStatus]     = useState('');
+  const [refreshing,   setRefreshing]   = useState(false);
 
+  const pollRef = useRef(null);
   const currentTier = getTierByKey(selectedTier);
 
-  const loadMatches = async () => {
+  const loadMatches = useCallback(async () => {
     try {
-      console.log('Loading matches...');
       const data = await getOpenMatches();
       setMatches(data || []);
-      console.log('Matches loaded:', data?.length || 0);
     } catch (err) {
       console.error('Failed to load matches:', err);
     }
-  };
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -51,55 +41,23 @@ export default function Lobby({ onJoinMatch }) {
     setTimeout(() => setRefreshing(false), 600);
   };
 
+  // Load on mount and when wallet connects
   useEffect(() => {
     loadMatches();
-  }, [isConnected, address]);
+  }, [isConnected, address, loadMatches]);
 
+  // Realtime + polling
   useEffect(() => {
-    let isMounted = true;
-    
-    const setupSubscription = () => {
-      if (subscriptionRef.current) {
-        try {
-          subscriptionRef.current.unsubscribe();
-        } catch (e) {}
-      }
-      
-      const channel = subscribeToLobby(() => {
-        if (isMounted) {
-          console.log('Realtime update - refreshing matches');
-          loadMatches();
-        }
-      });
-      
-      subscriptionRef.current = channel;
-    };
-    
-    setupSubscription();
-    
-    pollIntervalRef.current = setInterval(() => {
-      if (isMounted) {
-        loadMatches();
-      }
-    }, 6000);
-    
+    const channel = subscribeToLobby(() => loadMatches());
+    pollRef.current = setInterval(loadMatches, 5000);
     return () => {
-      isMounted = false;
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-      if (subscriptionRef.current) {
-        try {
-          subscriptionRef.current.unsubscribe();
-        } catch (e) {}
-      }
+      channel.unsubscribe();
+      clearInterval(pollRef.current);
     };
-  }, []);
+  }, [loadMatches]);
 
   useEffect(() => {
-    if (address) {
-      getEthBalance(address).then(setEthBalance);
-    }
+    if (address) getEthBalance(address).then(setEthBalance);
   }, [address]);
 
   const handleCreate = async () => {
@@ -107,7 +65,6 @@ export default function Lobby({ onJoinMatch }) {
     setError('');
     setTxStatus('');
     setCreating(true);
-
     try {
       const validation = await validateEntryBalance(address, selectedTier);
       if (!validation.hasEnough) {
@@ -117,10 +74,8 @@ export default function Lobby({ onJoinMatch }) {
       }
 
       const matchId = crypto.randomUUID();
-
       setTxStatus('Approve ETH deposit in wallet...');
       const result = await createMatchOnChain(walletClient, matchId, maxPlayers, selectedTier);
-
       if (!result.success) {
         setError(result.error || 'Transaction failed.');
         setCreating(false);
@@ -130,18 +85,15 @@ export default function Lobby({ onJoinMatch }) {
 
       setTxStatus('Creating match record...');
       const match = await createMatch(address, currentTier.eth, maxPlayers, selectedTier, matchId);
-
       setTxStatus('Match created! ✅');
       setTimeout(() => setTxStatus(''), 2500);
       getEthBalance(address).then(setEthBalance);
-      
       await loadMatches();
       onJoinMatch(match);
     } catch (err) {
       console.error(err);
       setError(err.message || 'Failed to create match');
     }
-
     setCreating(false);
     setTxStatus('');
   };
@@ -150,9 +102,8 @@ export default function Lobby({ onJoinMatch }) {
     if (!address || !walletClient) return;
     setError('');
     setJoining(match.id);
-
     try {
-      const tierKey = match.tier || 'bronze';
+      const tierKey    = match.tier || 'bronze';
       const validation = await validateEntryBalance(address, tierKey);
       if (!validation.hasEnough) {
         setError(`Need ${validation.required} ETH to join. You have ${validation.balance.toFixed(4)} ETH.`);
@@ -162,7 +113,6 @@ export default function Lobby({ onJoinMatch }) {
 
       setTxStatus('Approve ETH deposit in wallet...');
       const result = await joinMatchOnChain(walletClient, match.id, tierKey);
-
       if (!result.success) {
         setError(result.error || 'Transaction failed.');
         setJoining(null);
@@ -174,14 +124,16 @@ export default function Lobby({ onJoinMatch }) {
       setTxStatus('Joined! ✅');
       setTimeout(() => setTxStatus(''), 2000);
       getEthBalance(address).then(setEthBalance);
-      
       await loadMatches();
-      onJoinMatch(match);
+
+      // Fetch the updated match to pass along
+      const { data: updatedMatch } = await supabase
+        .from('matches').select('*').eq('id', match.id).single();
+      onJoinMatch(updatedMatch || match);
     } catch (err) {
       console.error(err);
       setError(err.message || 'Failed to join match');
     }
-
     setJoining(null);
     setTxStatus('');
   };
@@ -189,16 +141,15 @@ export default function Lobby({ onJoinMatch }) {
   const handleCancel = async (matchId) => {
     if (!address) return;
     setCancelling(matchId);
-    
     try {
-      await cancelMatch(matchId);
+      await supabase.from('matches')
+        .update({ status: 'cancelled' })
+        .eq('id', matchId)
+        .eq('host_wallet', address); // only host can cancel via lobby
       await loadMatches();
-      console.log('Match cancelled successfully');
     } catch (err) {
-      console.error('Failed to cancel match:', err);
       setError('Failed to cancel match');
     }
-    
     setCancelling(null);
   };
 
@@ -240,9 +191,10 @@ export default function Lobby({ onJoinMatch }) {
         </div>
       </div>
 
-      {error && <div className="lobby-error"><AlertCircle size={15} /> {error}</div>}
+      {error    && <div className="lobby-error"><AlertCircle size={15} /> {error}</div>}
       {txStatus && <div className="tx-status">{txStatus}</div>}
 
+      {/* Create Match */}
       <div className="create-match-card">
         <h3><Plus size={17} /> Create Match</h3>
 
@@ -300,20 +252,22 @@ export default function Lobby({ onJoinMatch }) {
           🔒 ETH locked in Base smart contract • 5% platform fee on prize
         </div>
 
-        <button
-          className="create-btn"
-          onClick={handleCreate}
-          disabled={creating}
-        >
+        <button className="create-btn" onClick={handleCreate} disabled={creating}>
           {creating ? (txStatus || 'Creating...') : `Create Match — ${currentTier.eth} ETH`}
         </button>
       </div>
 
+      {/* Open Matches */}
       <div className="matches-section">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
           <h3>Open Matches ({matches.length})</h3>
-          <button onClick={handleRefresh} title="Refresh" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-            <RefreshCw size={18} className={refreshing ? 'spin' : ''} />
+          <button
+            onClick={handleRefresh}
+            title="Refresh"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem' }}
+          >
+            <RefreshCw size={15} style={{ animation: refreshing ? 'spin 0.6s linear' : 'none' }} />
+            Refresh
           </button>
         </div>
 
@@ -324,10 +278,12 @@ export default function Lobby({ onJoinMatch }) {
         ) : (
           <div className="matches-list">
             {matches.map(match => {
-              const tier = getTierByKey(match.tier || 'bronze');
-              const remaining = match.max_players - (match.current_players || 1);
-              const pool = parseFloat(match.prize_pool || 0);
-              const isHost = match.host_wallet === address;
+              const tier       = getTierByKey(match.tier || 'bronze');
+              const joined     = match.match_players?.length || match.current_players || 1;
+              const remaining  = match.max_players - joined;
+              const pool       = parseFloat(match.prize_pool || 0);
+              const isHost     = match.host_wallet === address;
+              const alreadyIn  = match.match_players?.some(p => p.wallet_address === address);
 
               return (
                 <div key={match.id} className="match-card">
@@ -335,10 +291,14 @@ export default function Lobby({ onJoinMatch }) {
                     <div className="match-host">
                       <span className="tier-badge-sm">{tier.icon} {tier.eth} ETH</span>
                       {' '}Host: {formatWallet(match.host_wallet)}
-                      {isHost && <span style={{ marginLeft: '8px', fontSize: '11px', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>Your Match</span>}
+                      {isHost && (
+                        <span style={{ marginLeft: '8px', fontSize: '11px', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                          Your Match
+                        </span>
+                      )}
                     </div>
                     <div className="match-details">
-                      <span><Users size={13} /> {match.current_players || 1}/{match.max_players}</span>
+                      <span><Users size={13} /> {joined}/{match.max_players}</span>
                       <span className="match-remaining">{remaining} spot{remaining !== 1 ? 's' : ''} left</span>
                       <span>🏆 {pool.toFixed(4)} ETH</span>
                       <span>⭐ {tier.points.toLocaleString()} pts</span>
@@ -346,27 +306,33 @@ export default function Lobby({ onJoinMatch }) {
                     <div className="match-progress-bar">
                       <div
                         className="match-progress-fill"
-                        style={{ width: `${((match.current_players || 1) / match.max_players) * 100}%` }}
+                        style={{ width: `${(joined / match.max_players) * 100}%` }}
                       />
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {isHost && (
+
+                  <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                    {isHost && joined <= 1 && (
                       <button
-                        className="cancel-btn"
+                        style={{ background: 'rgba(255,0,0,0.15)', color: '#ff6666', padding: '8px 10px', borderRadius: '8px', cursor: 'pointer', border: '1px solid rgba(255,0,0,0.2)', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px' }}
                         onClick={() => handleCancel(match.id)}
                         disabled={cancelling === match.id}
-                        style={{ background: 'rgba(255,0,0,0.2)', color: '#ff6666', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
                       >
-                        <XCircle size={14} /> {cancelling === match.id ? '...' : 'Cancel'}
+                        <XCircle size={13} /> {cancelling === match.id ? '...' : 'Cancel'}
                       </button>
                     )}
                     <button
                       className="join-btn"
                       onClick={() => handleJoin(match)}
-                      disabled={joining === match.id || isHost}
+                      disabled={joining === match.id || isHost || alreadyIn}
                     >
-                      {joining === match.id ? 'Joining...' : <>Join <ArrowRight size={13} /></>}
+                      {joining === match.id
+                        ? 'Joining...'
+                        : alreadyIn
+                          ? 'Joined ✓'
+                          : isHost
+                            ? 'Your match'
+                            : <><span>Join</span> <ArrowRight size={13} /></>}
                     </button>
                   </div>
                 </div>
