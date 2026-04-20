@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAccount } from 'wagmi';
-import { updatePlayerScore, subscribeToMatch, getMatchPlayers, finishMatch } from '../lib/supabase';
+import { updatePlayerScore, subscribeToMatch, getMatchPlayers, finishMatch, supabase } from '../lib/supabase';
 import { formatWallet } from '../lib/blockchain';
 import {
   createGameState, spawnTarget, hitTarget, removeExpiredTargets,
@@ -14,7 +14,7 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
   const [gameState,     setGameState]     = useState(() => createGameState());
   const [opponents,     setOpponents]     = useState(initialPlayers || []);
   const [lastHitEffect, setLastHitEffect] = useState(null);
-  const [phase,         setPhase]         = useState('waiting'); // waiting | countdown | playing | finished
+  const [phase,         setPhase]         = useState('countdown');
   const [countdownNum,  setCountdownNum]  = useState(null);
 
   const spawnRef   = useRef(null);
@@ -22,13 +22,15 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
   const tickRef    = useRef(null);
   const gsRef      = useRef(gameState);
   const doneRef    = useRef(false);
+  // Store the UTC end time so the timer always stops at the right moment
+  const gameEndAtRef = useRef(null);
   gsRef.current    = gameState;
 
   const AREA_WIDTH  = 320;
   const AREA_HEIGHT = 384;
-  const isHost      = address === match.host_wallet;
+  const isHost      = address === match?.host_wallet;
 
-  // ─── Sync opponents ────────────────────────────────────────────────────────
+  // ─── Sync opponents ───────────────────────────────────────────────────────
   useEffect(() => {
     const ch = subscribeToMatch(match.id, async () => {
       const data = await getMatchPlayers(match.id);
@@ -37,58 +39,87 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
     return () => { ch.unsubscribe(); };
   }, [match.id]);
 
-  // ─── Synchronized start using game_start_time from match ──────────────────
-  // This is the KEY fix: all players use the SAME UTC timestamp from the DB.
-  // No local countdown that drifts — pure math: startAt - now = delay.
+  // ─── Start logic ──────────────────────────────────────────────────────────
+  // The game ends at a fixed UTC time: game_start_time + ROUND_DURATION_SEC.
+  // Everyone — early or late — ends at that exact moment.
+  // Late joiners simply have less time to score.
   useEffect(() => {
     const gameStartTime = match.game_start_time;
 
     if (!gameStartTime) {
-      // Fallback: if column doesn't exist yet, use a fixed 3s delay
-      console.warn('No game_start_time on match — using 3s fallback');
-      const t = setTimeout(() => beginGame(), 3000);
-      return () => clearTimeout(t);
+      console.warn('[GamePlay] No game_start_time, starting immediately with full time');
+      gameEndAtRef.current = Date.now() + ROUND_DURATION_SEC * 1000;
+      setCountdownNum(0);
+      beginGame(ROUND_DURATION_SEC);
+      return;
     }
 
-    const startAt = new Date(gameStartTime).getTime();
-    const now     = Date.now();
-    const delay   = Math.max(0, startAt - now);
+    const startAt  = new Date(gameStartTime).getTime();
+    // The moment everyone's game ends — fixed for all players
+    const endAt    = startAt + ROUND_DURATION_SEC * 1000;
+    gameEndAtRef.current = endAt;
 
-    console.log(`[GamePlay] game_start_time=${gameStartTime}, delay=${delay}ms`);
+    const now        = Date.now();
+    const msUntilEnd = endAt - now;
 
-    // Show countdown display ticking toward zero
-    setPhase('countdown');
-    setCountdownNum(Math.ceil(delay / 1000));
+    if (msUntilEnd <= 0) {
+      // Game already fully over — go straight to finished
+      console.log('[GamePlay] Game already ended, showing results');
+      setPhase('finished');
+      setTimeout(() => handleGameOver(gsRef.current), 500);
+      return;
+    }
 
-    const countdownInterval = setInterval(() => {
-      const secs = Math.ceil((startAt - Date.now()) / 1000);
-      setCountdownNum(Math.max(0, secs));
-    }, 250);
+    const msUntilStart = startAt - now;
 
-    const startTimer = setTimeout(() => {
-      clearInterval(countdownInterval);
-      beginGame();
-    }, delay);
+    if (msUntilStart > 0) {
+      // Game hasn't started yet — show countdown then begin with full time
+      const totalSecs = Math.ceil(msUntilStart / 1000);
+      setCountdownNum(totalSecs);
 
-    return () => {
-      clearInterval(countdownInterval);
-      clearTimeout(startTimer);
-    };
+      const interval = setInterval(() => {
+        const secs = Math.ceil((startAt - Date.now()) / 1000);
+        setCountdownNum(Math.max(0, secs));
+      }, 250);
+
+      const timer = setTimeout(() => {
+        clearInterval(interval);
+        const remainingSec = Math.round((gameEndAtRef.current - Date.now()) / 1000);
+        beginGame(Math.max(1, remainingSec));
+      }, msUntilStart);
+
+      console.log(`[GamePlay] Starts in ${msUntilStart}ms, full ${ROUND_DURATION_SEC}s`);
+      return () => { clearInterval(interval); clearTimeout(timer); };
+
+    } else {
+      // Game already started — join mid-game with only remaining time
+      const remainingSec = Math.round(msUntilEnd / 1000);
+      console.log(`[GamePlay] Late join — ${remainingSec}s remaining`);
+      setCountdownNum(0);
+      beginGame(Math.max(1, remainingSec));
+    }
   }, []);
 
-  const beginGame = () => {
+  const beginGame = (durationSec) => {
     setPhase('playing');
     setCountdownNum(null);
-    setGameState(prev => ({ ...prev, isActive: true, timeLeft: ROUND_DURATION_SEC }));
+    setGameState(prev => ({ ...prev, isActive: true, timeLeft: durationSec }));
   };
 
-  // ─── Game timer ────────────────────────────────────────────────────────────
+  // ─── Game timer — ticks down and ends at the right UTC moment ─────────────
   useEffect(() => {
     if (phase !== 'playing') return;
 
     tickRef.current = setInterval(() => {
       setGameState(prev => {
-        if (prev.timeLeft <= 1) {
+        // Always check against the real end time, not just the countdown
+        const msLeft = gameEndAtRef.current
+          ? gameEndAtRef.current - Date.now()
+          : prev.timeLeft * 1000 - 1000;
+
+        const secsLeft = Math.max(0, Math.round(msLeft / 1000));
+
+        if (secsLeft <= 0) {
           clearInterval(tickRef.current);
           clearTimeout(spawnRef.current);
           clearInterval(cleanupRef.current);
@@ -100,14 +131,15 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
           }
           return final;
         }
-        return { ...prev, timeLeft: prev.timeLeft - 1 };
+
+        return { ...prev, timeLeft: secsLeft };
       });
     }, 1000);
 
     return () => clearInterval(tickRef.current);
   }, [phase]);
 
-  // ─── Target spawner ────────────────────────────────────────────────────────
+  // ─── Target spawner ───────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'playing') return;
     const schedule = () => {
@@ -124,7 +156,7 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
     return () => clearTimeout(spawnRef.current);
   }, [phase]);
 
-  // ─── Expire targets ────────────────────────────────────────────────────────
+  // ─── Expire targets ───────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'playing') return;
     cleanupRef.current = setInterval(() => {
@@ -133,7 +165,7 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
     return () => clearInterval(cleanupRef.current);
   }, [phase]);
 
-  // ─── Score sync ────────────────────────────────────────────────────────────
+  // ─── Score sync ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'playing' || !address) return;
     const sync = setInterval(() => {
@@ -143,7 +175,7 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
     return () => clearInterval(sync);
   }, [phase, address, match.id]);
 
-  // ─── Click handler ─────────────────────────────────────────────────────────
+  // ─── Click handler ────────────────────────────────────────────────────────
   const handleTargetClick = useCallback((targetId) => {
     setGameState(prev => {
       const next = hitTarget({ ...prev, targets: [...prev.targets] }, targetId);
@@ -155,38 +187,71 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
     });
   }, []);
 
-  // ─── Game over ─────────────────────────────────────────────────────────────
+  // ─── Game over ────────────────────────────────────────────────────────────
+  // All players end at the same UTC moment so no waiting needed.
+  // Host pushes final score and declares winner.
+  // Non-host pushes final score and waits 3s for host to write winner to DB.
   const handleGameOver = async (finalState) => {
     if (!address) return;
 
-    await updatePlayerScore(match.id, address, finalState.score, getAvgReactionTime(finalState));
+    // Push this player's final score
+    await updatePlayerScore(
+      match.id, address,
+      finalState.score,
+      getAvgReactionTime(finalState)
+    );
 
-    // Wait 2s for all players to push final scores
-    await new Promise(r => setTimeout(r, 2000));
-
-    const all    = await getMatchPlayers(match.id);
-    const sorted = [...all].sort((a, b) => b.score - a.score);
-    const top    = sorted[0]?.score ?? 0;
-    const tied   = sorted.filter(p => p.score === top);
-    const winner = tied.length === 1
-      ? sorted[0]
-      : tied.sort((a, b) => (a.avg_reaction_time || 9999) - (b.avg_reaction_time || 9999))[0];
-
-    // Only host writes winner to Supabase — declareWinners.js picks it up
     if (isHost) {
-      await finishMatch(match.id, winner.wallet_address);
-    }
+      // Give all players 2s to push their final scores, then pick winner
+      await new Promise(r => setTimeout(r, 2000));
 
-    // KEY FIX: case-insensitive comparison so it works in all wallets
-    onGameEnd({
-      ...finalState,
-      allPlayers:  sorted,
-      winner:      winner.wallet_address,
-      isWinner:    winner.wallet_address.toLowerCase() === address.toLowerCase(),
-      prizePool:   match.prize_pool || 0,
-      perfectHits: finalState.perfectHits,
-      maxCombo:    finalState.maxCombo,
-    });
+      const all    = await getMatchPlayers(match.id);
+      const sorted = [...all].sort((a, b) => b.score - a.score);
+      const top    = sorted[0]?.score ?? 0;
+      const tied   = sorted.filter(p => p.score === top);
+      const winner = tied.length === 1
+        ? sorted[0]
+        : tied.sort(
+            (a, b) => (a.avg_reaction_time || 9999) - (b.avg_reaction_time || 9999)
+          )[0];
+
+      await finishMatch(match.id, winner.wallet_address);
+
+      onGameEnd({
+        ...finalState,
+        allPlayers:  sorted,
+        winner:      winner.wallet_address,
+        isWinner:    winner.wallet_address.toLowerCase() === address.toLowerCase(),
+        prizePool:   match.prize_pool || 0,
+        perfectHits: finalState.perfectHits,
+        maxCombo:    finalState.maxCombo,
+      });
+
+    } else {
+      // Non-host: wait for host to declare winner (host needs 2s + finishMatch time)
+      await new Promise(r => setTimeout(r, 4000));
+
+      const all = await getMatchPlayers(match.id);
+      const sorted = [...all].sort((a, b) => b.score - a.score);
+
+      const { data: matchRow } = await supabase
+        .from('matches')
+        .select('winner_wallet')
+        .eq('id', match.id)
+        .single();
+
+      const winnerWallet = matchRow?.winner_wallet || sorted[0]?.wallet_address;
+
+      onGameEnd({
+        ...finalState,
+        allPlayers:  sorted,
+        winner:      winnerWallet,
+        isWinner:    winnerWallet?.toLowerCase() === address.toLowerCase(),
+        prizePool:   match.prize_pool || 0,
+        perfectHits: finalState.perfectHits,
+        maxCombo:    finalState.maxCombo,
+      });
+    }
   };
 
   return (
@@ -210,7 +275,7 @@ export default function GamePlay({ match, players: initialPlayers, onGameEnd }) 
       </div>
 
       <div className="game-play-area">
-        {(phase === 'waiting' || phase === 'countdown') && (
+        {phase === 'countdown' && (
           <div className="game-countdown-overlay">
             <div className="big-text" style={{ fontSize: '4rem' }}>
               {countdownNum > 0 ? countdownNum : 'GO!'}
